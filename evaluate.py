@@ -3,70 +3,49 @@ import tensorflow as tf
 import tensorflow_hub as hub
 import numpy as np
 import pandas as pd
-import math
 import argparse
+import configparser
 from pydub import AudioSegment
+from utils import load_waveforms_and_labels
 from scipy.io import wavfile
 
-FILE_DIR = "Wavfile"
-LABEL_DIR = "PitchLabel"
-
-
-
-def evaluate(wav_ds, ds_name):
-    model = hub.load("https://tfhub.dev/google/spice/2")
-    results = pd.DataFrame(columns=["Pitch", "Confidence", "Label"]) 
-
-    for audio, label in wav_ds.take(1):
-        pitch, conf = predict(model, audio)
-        results.append(pitch, conf, label)
-    
-    results.to_csv(f"./results/{ds_name}")
+MAX_ABS_INT16 = 32768.0
 
 def predict(model, audio):
-    model_output = model.signatures["serving_default"](audio)
+    model_output = model.signatures["serving_default"](tf.constant(audio, tf.float32))
     return model_output["pitch"], 1 - model_output["uncertainty"]
     
 
-def get_waveform_and_label(file_path, label_path):
-  audio_binary = tf.io.read_file(file_path)
-  waveform = decode_audio(audio_binary)
-  label = np.loadtxt(label_path)
-  return waveform, label
-
-
-def decode_audio(audio_binary):
-    audio, _ = tf.audio.decode_wav(audio_binary)
-    return tf.squeeze(audio, axis=-1)
-
-
-def get_label_path(file_path):
-    parts = tf.strings.split(file_path, os.path.sep)
-    parts[-2] = LABEL_DIR
-    parts[-1] = parts[-1].split(".")[0] + ".txt"
-    return os.path.join(parts)
+def get_waveform(path):
+    _, waveform = wavfile.read(path, 'rb')
+    return waveform / float(MAX_ABS_INT16)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', type=str)
+    parser.add_argument('ds_name', type=str)
     args = parser.parse_args()
 
-    files_dir = os.path.join("results", args.dataset, FILE_DIR)
+    conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    conf.read('consts.conf')
+    ds_conf = conf[args.ds_name]
 
-    file_names = tf.io.gfile.glob(files_dir)
-    labels_names = [get_label_path(fn) for fn  in file_names]
+    model = hub.load("https://tfhub.dev/google/spice/2")
+    wav_paths, label_paths = load_waveforms_and_labels(ds_conf["output_dir_wav"], ds_conf["output_dir_label"])
+    results = []
 
-    wav_ds = tf.data.Dataset.from_tensor_slices(zip(file_names, labels_names))
-    wav_ds = wav_ds.map(
-        lambda x: get_waveform_and_label(x[0], x[1]), 
-        num_parallel_calls=tf.data.AUTOTUNE
-        )
+    for wav_path, label_path in zip(wav_paths, label_paths):
+        waveform = get_waveform(wav_path)
+        label = np.loadtxt(label_path, delimiter=",")
+        pitch_pred, confidence_pred = predict(model, waveform)
+        f_name = os.path.splitext(os.path.basename(wav_path))[0]
+        results.append([f_name, label[:,1], pitch_pred.numpy(), confidence_pred.numpy()])
+    
+    results_pd = pd.DataFrame(results, columns=["File", "True pitch", "Pitch", "Confidence"]) 
+    results_pd.to_csv(ds_conf["results_path"])
 
-    evaluate(wav_ds, args.dataset)
 
-
-if __name__ == "__main__":
+if __name__ == "__main__": 
     main()
 
     
