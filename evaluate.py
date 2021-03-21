@@ -12,6 +12,7 @@ FILE_DIR = "Wavfile"
 LABEL_DIR = "PitchLabel"
 
 
+
 def evaluate(wav_ds, ds_name):
     model = hub.load("https://tfhub.dev/google/spice/2")
     results = pd.DataFrame(columns=["Pitch", "Confidence", "Label"]) 
@@ -20,7 +21,7 @@ def evaluate(wav_ds, ds_name):
         pitch, conf = predict(model, audio)
         results.append(pitch, conf, label)
     
-    results.to_csv(f"./Results/{ds_name}")
+    results.to_csv(f"./results/{ds_name}")
 
 def predict(model, audio):
     model_output = model.signatures["serving_default"](audio)
@@ -48,10 +49,10 @@ def get_label_path(file_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', type=str, required=True)
+    parser.add_argument('dataset', type=str)
     args = parser.parse_args()
 
-    files_dir = os.path.join("dataset", args.dataset, FILE_DIR)
+    files_dir = os.path.join("results", args.dataset, FILE_DIR)
 
     file_names = tf.io.gfile.glob(files_dir)
     labels_names = [get_label_path(fn) for fn  in file_names]
@@ -63,6 +64,10 @@ def main():
         )
 
     evaluate(wav_ds, args.dataset)
+
+
+if __name__ == "__main__":
+    main()
 
     
 
