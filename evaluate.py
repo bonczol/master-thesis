@@ -13,8 +13,15 @@ MAX_ABS_INT16 = 32768.0
 
 def predict(model, audio):
     model_output = model.signatures["serving_default"](tf.constant(audio, tf.float32))
-    return model_output["pitch"], 1 - model_output["uncertainty"]
-    
+    return output2hz(model_output["pitch"]), 1 - model_output["uncertainty"]
+
+def output2hz(pitch_output):
+    PT_OFFSET = 25.58
+    PT_SLOPE = 63.07
+    FMIN = 10.0
+    BINS_PER_OCTAVE = 12.0
+    cqt_bin = pitch_output * PT_SLOPE + PT_OFFSET
+    return FMIN * 2.0 ** (1.0 * cqt_bin / BINS_PER_OCTAVE)
 
 def get_waveform(path):
     _, waveform = wavfile.read(path, 'rb')
@@ -25,7 +32,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('ds_name', type=str)
     args = parser.parse_args()
-
     conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     conf.read('consts.conf')
     ds_conf = conf[args.ds_name]
@@ -39,7 +45,8 @@ def main():
         label = np.loadtxt(label_path, delimiter=",")
         pitch_pred, confidence_pred = predict(model, waveform)
         f_name = os.path.splitext(os.path.basename(wav_path))[0]
-        results.append([f_name, label[:,1], pitch_pred.numpy(), confidence_pred.numpy()])
+            
+        results.append([f_name, list(label[:,1]), list(pitch_pred.numpy()), list(confidence_pred.numpy())])
     
     results_pd = pd.DataFrame(results, columns=["File", "True pitch", "Pitch", "Confidence"]) 
     results_pd.to_csv(ds_conf["results_path"])

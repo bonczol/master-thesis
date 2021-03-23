@@ -32,7 +32,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('ds_name', type=str)
     args = parser.parse_args()
-
     conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     conf.read('consts.conf')
     ds_conf = conf[args.ds_name]
