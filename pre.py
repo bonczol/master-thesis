@@ -3,29 +3,25 @@ import os
 import argparse
 import configparser
 import re
+from utils import load_waveforms_and_labels
 from converters import MirConverter, MdbConverter
+from multiprocessing import Pool
 from pydub import AudioSegment
+import time
 
 
-def convert_dataset(converter, conf):
-    wav_files = sorted([f for f in  os.listdir(conf['input_dir_wav']) if not f.startswith(".") and f.endswith(".wav")])
-    labels_files = sorted([f for f in  os.listdir(conf['input_dir_label']) if not f.startswith(".") and re.match(r".*\.(pv|csv)$", f)])
+def convert_example(wav_name, labels_name, converter, conf):
+    audio = AudioSegment.from_file(wav_name)
+    labels = np.loadtxt(labels_name, delimiter=',')
+    
+    labels = converter.convert_label(labels, audio.duration_seconds)
+    np.savetxt(
+        os.path.join(conf['output_dir_label'], os.path.splitext(os.path.basename(labels_name))[0] + ".csv"), 
+        labels, delimiter=',', fmt='%1.6f'
+    )
 
-    if len(wav_files) != len(labels_files):
-        raise Exception("Number of .wav files different than number of label files")
-
-    for wav_name, labels_name in zip(wav_files, labels_files):
-        audio = AudioSegment.from_file(os.path.join(conf['input_dir_wav'], wav_name))
-        labels = np.loadtxt(os.path.join(conf['input_dir_label'], labels_name), delimiter=',')
-        
-        labels = converter.convert_label(labels, audio.duration_seconds)
-        np.savetxt(
-            os.path.join(conf['output_dir_label'], os.path.splitext(labels_name)[0] + ".csv"), 
-            labels, delimiter=',', fmt='%1.6f'
-        )
-
-        audio = converter.convert_audio(audio)
-        audio.export(os.path.join(conf['output_dir_wav'], wav_name), format="wav")
+    audio = converter.convert_audio(audio)
+    audio.export(os.path.join(conf['output_dir_wav'], os.path.basename(wav_name)), format="wav")
 
 
 def main():
@@ -43,7 +39,13 @@ def main():
     else:
         converter = MirConverter()
 
-    convert_dataset(converter, ds_conf)
+    print(type(converter).__name__)
+    wav_paths, labels_paths = load_waveforms_and_labels(ds_conf['input_dir_wav'], ds_conf['input_dir_label'])
+
+    with Pool() as pool:
+        n = len(wav_paths)
+        pool.starmap(convert_example, zip(wav_paths, labels_paths, [converter] * n, [ds_conf] * n))
 
 
-main()
+if __name__ == '__main__':
+    main()

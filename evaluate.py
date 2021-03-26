@@ -6,8 +6,10 @@ import pandas as pd
 import argparse
 import configparser
 from pydub import AudioSegment
-from utils import load_waveforms_and_labels
+from utils import load_waveforms_and_labels, semitones_to_hz
+from multiprocessing import Pool
 from scipy.io import wavfile
+import  pickle
 
 MAX_ABS_INT16 = 32768.0
 
@@ -15,13 +17,12 @@ def predict(model, audio):
     model_output = model.signatures["serving_default"](tf.constant(audio, tf.float32))
     return output2hz(model_output["pitch"]), 1 - model_output["uncertainty"]
 
+
 def output2hz(pitch_output):
     PT_OFFSET = 25.58
     PT_SLOPE = 63.07
-    FMIN = 10.0
-    BINS_PER_OCTAVE = 12.0
-    cqt_bin = pitch_output * PT_SLOPE + PT_OFFSET
-    return FMIN * 2.0 ** (1.0 * cqt_bin / BINS_PER_OCTAVE)
+    return pitch_output * PT_SLOPE + PT_OFFSET
+
 
 def get_waveform(path):
     _, waveform = wavfile.read(path, 'rb')
@@ -38,6 +39,7 @@ def main():
 
     model = hub.load("https://tfhub.dev/google/spice/2")
     wav_paths, label_paths = load_waveforms_and_labels(ds_conf["output_dir_wav"], ds_conf["output_dir_label"])
+
     results = []
 
     for wav_path, label_path in zip(wav_paths, label_paths):
@@ -45,11 +47,11 @@ def main():
         label = np.loadtxt(label_path, delimiter=",")
         pitch_pred, confidence_pred = predict(model, waveform)
         f_name = os.path.splitext(os.path.basename(wav_path))[0]
-            
-        results.append([f_name, list(label[:,1]), list(pitch_pred.numpy()), list(confidence_pred.numpy())])
-    
-    results_pd = pd.DataFrame(results, columns=["File", "True pitch", "Pitch", "Confidence"]) 
-    results_pd.to_csv(ds_conf["results_path"])
+        results.append([f_name, label[:,1], pitch_pred.numpy(), confidence_pred.numpy()])   
+
+    results_pd = pd.DataFrame(results, columns=["file", "true_pitch", "pitch", "confidence"])
+    with open(ds_conf["results_path"], 'wb') as f:
+        pickle.dump(results_pd, f)
 
 
 if __name__ == "__main__": 

@@ -11,3 +11,7 @@ def load_waveforms_and_labels(wav_dir, labels_dir):
         raise Exception("Number of .wav files different than number of label files")
 
     return wav_files, labels_files
+
+
+def semitones_to_hz(pitch_in_semitones, base=10):
+    return base * 2.0 ** (1.0 * pitch_in_semitones / 12)

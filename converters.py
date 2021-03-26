@@ -1,6 +1,7 @@
 import numpy as np
 from pydub import AudioSegment
-
+from utils import semitones_to_hz
+from mir_eval.melody import hz2cents
 
 class Converter:
     def __init__(self):
@@ -19,10 +20,10 @@ class MirConverter(Converter):
         super().__init__()
 
     def convert_audio(self, audio):
-        audio = audio.set_frame_rate(self.sample_rate)
         return audio.split_to_mono()[1]
 
     def convert_label(self, labels, audio_duration):
+        labels  = np.where(labels <= 0.0, labels, labels - 3.5)
         t_model = self.get_model_time(audio_duration)
         t_labels = np.arange(self.label_t0, audio_duration - (self.label_ts - 0.00001),  self.label_ts)
         labels_model = np.interp(t_model, t_labels, labels)
@@ -35,6 +36,7 @@ class MdbConverter(Converter):
         return audio
 
     def convert_label(self, labels, audio_duration):
+        labels[:, 1] = hz2cents(labels[:, 1]) / 100.0
         t_model = self.get_model_time(audio_duration)
         labels_model = np.interp(t_model, labels[:, 0], labels[:, 1])
         return np.transpose(np.vstack((t_model, labels_model)))
