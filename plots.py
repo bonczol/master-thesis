@@ -17,12 +17,14 @@ def rpa(true_pitch, pitch, threshold):
 
 
 def vrr(true_pitch, confidence, threshold):
-    true_voiced = true_pitch != 0.0 
+    true_voiced = true_pitch != 0
+    # print(len(true_pitch), len(true_pitch[true_voiced]))
     return np.sum(confidence[true_voiced] > threshold) / np.sum(true_voiced) * 100
 
 
 def vfa(true_pitch, confidence, threshold):
-    true_unvoiced = true_pitch == 0.0
+    true_unvoiced = true_pitch == 0
+    print(len(true_pitch), len(true_pitch[true_unvoiced]))
     return np.sum(confidence[true_unvoiced] > threshold) / np.sum(true_unvoiced) * 100
 
 
@@ -42,6 +44,7 @@ def main():
         df = pickle.load(f)
 
     true_pitch = flatten_col(df['true_pitch'])
+    true_voicing = flatten_col(df['true_voicing'])
     pitch = flatten_col(df['pitch'])
     confidence = flatten_col(df['confidence'])
 
@@ -49,7 +52,7 @@ def main():
     print(rpa_res1)
 
     for i in np.arange(0.8, 1, 0.005):
-        print(i, vrr(true_pitch, confidence, i), vfa(true_pitch, confidence, i))
+        print(i, vrr(true_voicing, confidence, i), vfa(true_voicing, confidence, i))
 
     
     # df["Pitch difference"] = df[["True pitch", "Pitch"]].apply(lambda x: pitch_diff(x[1], x[0]), axis=1)

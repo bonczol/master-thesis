@@ -47,9 +47,9 @@ def main():
         label = np.loadtxt(label_path, delimiter=",")
         pitch_pred, confidence_pred = predict(model, waveform)
         f_name = os.path.splitext(os.path.basename(wav_path))[0]
-        results.append([f_name, label[:,1], pitch_pred.numpy(), confidence_pred.numpy()])   
+        results.append([f_name, label[:,1], label[:,2], pitch_pred.numpy(), confidence_pred.numpy()])   
 
-    results_pd = pd.DataFrame(results, columns=["file", "true_pitch", "pitch", "confidence"])
+    results_pd = pd.DataFrame(results, columns=["file", "true_pitch", "true_voicing", "pitch", "confidence"])
     with open(ds_conf["results_path"], 'wb') as f:
         pickle.dump(results_pd, f)
 

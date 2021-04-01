@@ -1,27 +1,22 @@
+import time
+import os
 import numpy as np
 import os
 import argparse
 import configparser
-import re
-from utils import load_waveforms_and_labels
 from converters import MirConverter, MdbConverter
 from multiprocessing import Pool
-from pydub import AudioSegment
-import time
 
 
-def convert_example(wav_name, labels_name, converter, conf):
-    audio = AudioSegment.from_file(wav_name)
-    labels = np.loadtxt(labels_name, delimiter=',')
-    
-    labels = converter.convert_label(labels, audio.duration_seconds)
-    np.savetxt(
-        os.path.join(conf['output_dir_label'], os.path.splitext(os.path.basename(labels_name))[0] + ".csv"), 
-        labels, delimiter=',', fmt='%1.6f'
-    )
+def convert_example(converter, out_wav_path, out_label_path):
+    audio = converter.convert_audio()
+    labels = converter.convert_label(audio.duration_seconds)
+    audio.export(out_wav_path, format='wav')
+    np.savetxt(out_label_path, labels, delimiter=',', fmt='%1.6f')
 
-    audio = converter.convert_audio(audio)
-    audio.export(os.path.join(conf['output_dir_wav'], os.path.basename(wav_name)), format="wav")
+
+def get_paths(dir, file_names, extension):
+    return [os.path.join(dir, fn + extension) for fn in file_names]
 
 
 def main():
@@ -32,19 +27,27 @@ def main():
     conf.read('consts.conf')
     ds_conf = conf[args.ds_name]
 
-    if args.ds_name == "MIR-1k":
-        converter = MirConverter()
-    elif args.ds_name == "MDB-stem-synth":
-        converter = MdbConverter()
-    else:
-        converter = MirConverter()
+    file_names = [os.path.splitext(f)[0] for f in  os.listdir(ds_conf['input_dir_wav']) 
+                  if not f.startswith('.') and f.endswith('.wav')] 
 
-    print(type(converter).__name__)
-    wav_paths, labels_paths = load_waveforms_and_labels(ds_conf['input_dir_wav'], ds_conf['input_dir_label'])
+    wav_paths = get_paths(ds_conf['input_dir_wav'], file_names, ".wav")
+    label_paths = get_paths(ds_conf['input_dir_label'], file_names, ds_conf['label_ext'])
+
+    if args.ds_name == 'MIR-1k':
+        voicing_paths = get_paths(ds_conf['dir_voicing'], file_names, ".vocal")
+        converters = [MirConverter(w, l, v) for w, l, v in zip(wav_paths, label_paths, voicing_paths)]
+    elif args.ds_name == 'MDB-stem-synth':
+        converters = [MdbConverter(w, l) for w, l in zip(wav_paths, label_paths)]
+    else:
+        raise Exception('No dataset')
+
+    print(type(converters[0]).__name__)
+
+    out_wav_paths = get_paths(ds_conf['output_dir_wav'], file_names, '.wav')
+    out_label_paths = get_paths(ds_conf['output_dir_label'], file_names, '.csv')
 
     with Pool() as pool:
-        n = len(wav_paths)
-        pool.starmap(convert_example, zip(wav_paths, labels_paths, [converter] * n, [ds_conf] * n))
+        pool.starmap(convert_example, zip(converters, out_wav_paths, out_label_paths))
 
 
 if __name__ == '__main__':
