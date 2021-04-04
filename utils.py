@@ -1,6 +1,7 @@
 import os
 import re
-
+import argparse
+import configparser
 
 
 def load_waveforms_and_labels(wav_dir, labels_dir):
@@ -13,5 +14,16 @@ def load_waveforms_and_labels(wav_dir, labels_dir):
     return wav_files, labels_files
 
 
-def semitones_to_hz(pitch_in_semitones, base=10):
-    return base * 2.0 ** (1.0 * pitch_in_semitones / 12)
+def get_wav_paths(wav_dir):
+    return sorted([os.path.join(wav_dir, f) for f in  os.listdir(wav_dir) 
+                        if not f.startswith(".") and f.endswith(".wav")])
+
+
+def get_args_and_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('ds_name', type=str)
+    args = parser.parse_args()
+    conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    conf.read('consts.conf')
+    ds_conf = conf[args.ds_name]
+    return args, ds_conf
