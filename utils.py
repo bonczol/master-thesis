@@ -18,6 +18,10 @@ def get_wav_paths(wav_dir):
     return sorted([os.path.join(wav_dir, f) for f in  os.listdir(wav_dir) 
                         if not f.startswith(".") and f.endswith(".wav")])
 
+def get_time_series_paths(dir_):
+    return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
+                        if not f.startswith(".") and re.match(r".*\.(pv|csv)$", f)])
+
 
 def get_args_and_config():
     parser = argparse.ArgumentParser()
