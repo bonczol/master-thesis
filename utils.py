@@ -1,6 +1,8 @@
 import os
 import re
 import argparse
+import numpy as np
+import scipy
 import configparser
 
 
@@ -13,14 +15,24 @@ def load_waveforms_and_labels(wav_dir, labels_dir):
 
     return wav_files, labels_files
 
+def semitones2hz(semitones):
+    FMIN = 10.0
+    BINS_PER_OCTAVE = 12.0
+    return FMIN * 2.0 ** (1.0 * semitones / BINS_PER_OCTAVE)
+
 
 def get_wav_paths(wav_dir):
     return sorted([os.path.join(wav_dir, f) for f in  os.listdir(wav_dir) 
                         if not f.startswith(".") and f.endswith(".wav")])
 
+
 def get_time_series_paths(dir_):
     return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
                         if not f.startswith(".") and re.match(r".*\.(pv|csv)$", f)])
+
+def get_vocal_paths(dir_):
+    return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
+                        if not f.startswith(".") and re.match(r".*\.(vocal)$", f)])
 
 
 def get_args_and_config():
@@ -31,3 +43,30 @@ def get_args_and_config():
     conf.read('consts.conf')
     ds_conf = conf[args.ds_name]
     return args, ds_conf
+
+
+def resample_zeros(times, frequencies, times_new):
+    frequencies_held = np.array(frequencies)
+    for n, frequency in enumerate(frequencies[1:]):
+        if frequency == 0:
+            frequencies_held[n + 1] = frequencies_held[n]
+
+    frequencies_resampled = scipy.interpolate.interp1d(times, frequencies_held, 'linear', fill_value="extrapolate")(times_new)
+    frequency_mask = scipy.interpolate.interp1d(times, frequencies, 'zero', fill_value="extrapolate")(times_new)
+    frequencies_resampled *= (frequency_mask != 0)
+    return frequencies_resampled
+
+
+def resample(times, frequencies, times_new):
+    return scipy.interpolate.interp1d(times, frequencies, 'linear', fill_value="extrapolate")(times_new)
+
+
+def first_nonzero(arr, axis, invalid_val=-1):
+    mask = arr!=0
+    return np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val)
+
+
+def last_nonzero(arr, axis, invalid_val=-1):
+    mask = arr!=0
+    val = arr.shape[axis] - np.flip(mask, axis=axis).argmax(axis=axis) - 1
+    return np.where(mask.any(axis=axis), val, invalid_val)

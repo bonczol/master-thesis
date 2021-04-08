@@ -6,7 +6,7 @@ import pandas as pd
 import argparse
 import configparser
 from pydub import AudioSegment
-from utils import load_waveforms_and_labels, semitones_to_hz
+from utils import get_wav_paths, get_args_and_config, semitones2hz
 from multiprocessing import Pool
 from scipy.io import wavfile
 import  pickle
@@ -21,37 +21,36 @@ def predict(model, audio):
 def output2hz(pitch_output):
     PT_OFFSET = 25.58
     PT_SLOPE = 63.07
-    return pitch_output * PT_SLOPE + PT_OFFSET
+    cqt_bin = pitch_output * PT_SLOPE + PT_OFFSET
+    return semitones2hz(cqt_bin)
 
 
 def get_waveform(path):
-    _, waveform = wavfile.read(path, 'rb')
-    return waveform / float(MAX_ABS_INT16)
+    rate, waveform = wavfile.read(path, 'rb')
+    duration = len(waveform) / float(rate)
+    waveform = waveform / float(MAX_ABS_INT16)
+    return duration, waveform
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('ds_name', type=str)
-    args = parser.parse_args()
-    conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-    conf.read('consts.conf')
-    ds_conf = conf[args.ds_name]
+    _, conf = get_args_and_config()
 
     model = hub.load("https://tfhub.dev/google/spice/2")
-    wav_paths, label_paths = load_waveforms_and_labels(ds_conf["output_dir_wav"], ds_conf["output_dir_label"])
+    wav_paths = get_wav_paths(conf["output_dir_wav"])
+    rows = []
 
-    results = []
+    for path in wav_paths:
+        duration, waveform = get_waveform(path)
+        time = np.arange(0, duration + 0.0001, 0.032)
 
-    for wav_path, label_path in zip(wav_paths, label_paths):
-        waveform = get_waveform(wav_path)
-        label = np.loadtxt(label_path, delimiter=",")
         pitch_pred, confidence_pred = predict(model, waveform)
-        f_name = os.path.splitext(os.path.basename(wav_path))[0]
-        results.append([f_name, label[:,1], label[:,2], pitch_pred.numpy(), confidence_pred.numpy()])   
 
-    results_pd = pd.DataFrame(results, columns=["file", "true_pitch", "true_voicing", "pitch", "confidence"])
-    with open(ds_conf["results_path"], 'wb') as f:
-        pickle.dump(results_pd, f)
+        f_name = os.path.splitext(os.path.basename(path))[0]
+        rows.append([f_name, time, pitch_pred.numpy(), confidence_pred.numpy()])   
+
+    with open(conf["spice_results_path"], 'wb') as f:
+        df = pd.DataFrame(rows, columns=["file", "time_spice", "pitch_spice", "confidence_spice"])
+        pickle.dump(df, f)
 
 
 if __name__ == "__main__": 
