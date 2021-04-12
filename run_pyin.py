@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import pickle
+import glob
 from utils import get_args_and_config
 
 
@@ -27,7 +28,12 @@ def main():
         rows.append([f_name_no_vamp, time, freq_est])
 
     with open(conf["pyin_results_path"], 'wb') as f:
-        pickle.dump(pd.DataFrame(rows, columns=["file", "time_pyin", "pitch_pyin"]), f)
+        pickle.dump(pd.DataFrame(rows, columns=["file", "time", "pitch"]), f)
+
+    files = glob.glob(f'{conf["tmp_results_pyin"]}/*')
+    for f in files:
+        os.remove(f)
+
         
 
 if __name__ == "__main__":

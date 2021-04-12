@@ -33,6 +33,7 @@ def get_waveform(path):
 
 
 def main():
+    # tf.config.set_visible_devices([], 'GPU')
     _, conf = get_args_and_config()
 
     model = hub.load("https://tfhub.dev/google/spice/2")
@@ -49,7 +50,7 @@ def main():
         rows.append([f_name, time, pitch_pred.numpy(), confidence_pred.numpy()])   
 
     with open(conf["spice_results_path"], 'wb') as f:
-        df = pd.DataFrame(rows, columns=["file", "time_spice", "pitch_spice", "confidence_spice"])
+        df = pd.DataFrame(rows, columns=["file", "time", "pitch", "confidence"])
         pickle.dump(df, f)
 
 

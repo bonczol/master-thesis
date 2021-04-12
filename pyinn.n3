@@ -8,7 +8,7 @@
     vamp:block_size "2048"^^xsd:int ;
     vamp:parameter_binding [
         vamp:parameter [ vamp:identifier "lowampsuppression" ] ;
-        vamp:value "0.1"^^xsd:float ;
+        vamp:value "0.01"^^xsd:float ;
     ] ;
     vamp:parameter_binding [
         vamp:parameter [ vamp:identifier "onsetsensitivity" ] ;
