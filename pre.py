@@ -5,7 +5,7 @@ import os
 import argparse
 import configparser
 from utils import get_args_and_config
-from converters import MirConverter, DummyConverter
+from converters import MirConverter, DummyConverter, MDBConverter
 from multiprocessing import Pool
 
 
@@ -32,7 +32,7 @@ def main():
         converters = [MirConverter(w, l, ow, ol) 
                       for w, l, ow, ol in zip(wav_paths, label_paths, out_wav_paths, out_label_paths)]
     elif args.ds_name == 'MDB-stem-synth':
-        converters = [DummyConverter(w, l, ow, ol) 
+        converters = [MDBConverter(w, l, ow, ol) 
                       for w, l, ow, ol in zip(wav_paths, label_paths, out_wav_paths, out_label_paths)]
     else:
         raise Exception('No dataset')

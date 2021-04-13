@@ -43,6 +43,17 @@ class MirConverter(Converter):
         np.savetxt(self.out_label_path, time_series, delimiter=',', fmt='%1.6f')
 
 
+class MDBConverter(Converter):
+    def __init__(self, wav_path, label_path, out_wav_path, out_label_path):
+        super().__init__(wav_path, label_path, out_wav_path, out_label_path)
+
+    def convert(self):
+        audio = self.get_audio()
+        audio = audio.set_frame_rate(self.sample_rate)
+        audio.export(self.out_wav_path, format='wav')
+        shutil.copyfile(self.label_path, self.out_label_path)
+
+
 class DummyConverter(Converter):
     def __init__(self, wav_path, label_path, out_wav_path, out_label_path):
         super().__init__(wav_path, label_path, out_wav_path, out_label_path)
