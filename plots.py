@@ -8,9 +8,10 @@ import os
 import seaborn as sns
 import yaml
 import glob
+import itertools
 from multiprocessing import Pool
 # from pandarallel import pandarallel
-from utils import get_args_and_config, get_time_series_paths, resample_zeros, resample, get_vocal_paths
+from utils import get_args_and_config, get_time_series_paths, resample_zeros, resample, get_vocal_paths, rpa_multi_tolerance
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
@@ -28,27 +29,15 @@ def add_voicing_and_cents(df, threshold):
 
 def cumulative(results, dataset):
     grouped_res = results.groupby('method')
-    r = []
+    r = pd.DataFrame(np.arange(5, 102, 5), columns=['pitch_diff'])
 
-    # def calc_rpa(theshold, grouped_data):
-    #     name, group = grouped_data
-    #     rpa = raw_pitch_accuracy(group.ref_voicing, group.ref_cent, group.est_voicing, group.est_cent, i)
-    #     return [i, name, rpa]
+    for name, group in grouped_res:
+        r[name] = rpa_multi_tolerance(group.ref_voicing, group.ref_cent, group.est_voicing, group.est_cent, r['pitch_diff'])
 
-    # pool = Pool()
-    # pool.starmap()
-
-    for i in range(5, 102, 5):
-        print(i)
-        for name, group in grouped_res:
-            rpa = raw_pitch_accuracy(group.ref_voicing, group.ref_cent, group.est_voicing, group.est_cent, i)
-            r.append([i, name, rpa])
+    r = pd.melt(r, id_vars=['pitch_diff'], value_vars=list(grouped_res.groups.keys()), var_name='method', value_name='RPA')
     
-    r = pd.DataFrame(r, columns=['Pitch difference', 'method', 'RPA'])
-
-    sns.lineplot(data=r, x='Pitch difference', y="RPA", hue="method")
-    plt.savefig(f'plots/cumulative_{dataset}.png')
-    plt.clf()
+    line_plot = sns.lineplot(data=r, x='pitch_diff', y="RPA", hue="method")
+    line_plot.get_figure().savefig(f'plots/cumulative_{dataset}.png')
 
 
 def get_instruments(metadata_dir):
@@ -133,7 +122,9 @@ def instruments_plot(results):
 
     # Draw the colorbar
     g.fig.colorbar(points, cax=cax)
-    plt.savefig("plots/instuments.png")
+    manager = plt.get_current_fig_manager()
+    manager.window.showMaximized()
+    plt.savefig("plots/instuments2.png")
     plt.show()
     plt.clf()
 
@@ -163,7 +154,10 @@ def main():
         with open(path, 'rb') as f:
             df = pickle.load(f)
 
-        df['method'] = detector
+        df['method'] = detector    # results_melt = pd.melt(results_df, id_vars=['file', 'method'],
+    #     value_vars=['RPA', 'RWC', 'VRR', 'VRF', 'OA'], var_name='metric')
+
+    # box_plot(results_melt, args.ds_name)
         dfs.append(labels_df.join(df.set_index('file'), on='file'))
     
     results_df = pd.concat(dfs)
@@ -199,16 +193,16 @@ def main():
     
 
     # Box plots
-    results_melt = pd.melt(results_df, id_vars=['file', 'method'],
-        value_vars=['RPA', 'RWC', 'VRR', 'VRF', 'OA'], var_name='metric')
+    # results_melt = pd.melt(results_df, id_vars=['file', 'method'],
+    #     value_vars=['RPA', 'RWC', 'VRR', 'VRF', 'OA'], var_name='metric')
 
-    box_plot(results_melt, args.ds_name)
+    # box_plot(results_melt, args.ds_name)
     
     # Insturments
     if args.ds_name == "MDB-stem-synth":
         instruments = get_instruments(conf['meta_data_dir'])
         results_df['instrument'] = results_df['file'].map(instruments)
-        results_df['avg_pitch']  = results_df['label_pitch'].apply(np.mean)
+        results_df['avg_pitch']  = results_df['label_pitch'].apply(lambda pitch: np.sum(pitch) / np.count_nonzero(pitch))
         instruments_plot(results_df)
 
 
