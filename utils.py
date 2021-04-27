@@ -36,14 +36,12 @@ def get_vocal_paths(dir_):
                         if not f.startswith(".") and re.match(r".*\.(vocal)$", f)])
 
 
-def get_args_and_config():
+def get_parser_and_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('ds_name', type=str)
-    args = parser.parse_args()
     conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     conf.read('consts.conf')
-    ds_conf = conf[args.ds_name]
-    return args, ds_conf
+    return parser, conf
 
 
 def resample_zeros(times, frequencies, times_new):

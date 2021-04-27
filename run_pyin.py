@@ -4,11 +4,13 @@ import numpy as np
 import os
 import pickle
 import glob
-from utils import get_args_and_config
+from utils import get_parser_and_config
 
 
 def main():
-    _, conf = get_args_and_config()
+    parser, conf = get_parser_and_config()
+    args = parser.parse_args()
+    conf = conf[args.ds_name]
 
     subprocess.call(['sonic-annotator',
                      '-t', conf['pyin_trans'],
@@ -30,9 +32,9 @@ def main():
     with open(conf["pyin_results_path"], 'wb') as f:
         pickle.dump(pd.DataFrame(rows, columns=["file", "time", "pitch"]), f)
 
-    files = glob.glob(f'{conf["tmp_results_pyin"]}/*')
-    for f in files:
-        os.remove(f)
+    # files = glob.glob(f'{conf["tmp_results_pyin"]}/*')
+    # for f in files:
+    #     os.remove(f)
 
         
 
