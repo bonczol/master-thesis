@@ -10,8 +10,7 @@ import yaml
 import glob
 import itertools
 from multiprocessing import Pool
-# from pandarallel import pandarallel
-from utils import get_args_and_config, get_time_series_paths, resample_zeros, resample, get_vocal_paths, rpa_multi_tolerance
+from utils import get_parser_and_config, get_time_series_paths, resample_zeros, resample, get_vocal_paths, rpa_multi_tolerance
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
@@ -51,26 +50,32 @@ def get_instruments(metadata_dir):
                 name, _ = os.path.splitext(filename)
                 filename = name + ".RESYN"
                 instruments[filename] = info['instrument']
-                
+                 
     return instruments
 
 
 def calc_metrics(results, dataset):
-    results["RPA"] = results.apply(
-        lambda r: raw_pitch_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
+    all_cols = ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']
 
-    results["RWC"]  = results.apply(lambda r:
-        raw_chroma_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
+    results["RPA"] = results[all_cols].apply(
+        lambda r: raw_pitch_accuracy(r[0], r[1], r[2], r[3]), raw=True, axis=1)
 
-    # if dataset != "MDB-stem-synth": # Skip voicing for synth
-    results["VRR"]  = results.apply(lambda r: 
-        voicing_recall(r['ref_voicing'], r['est_voicing']), axis=1)
+    print("RPA ...")
 
-    results["VRF"]  = results.apply(lambda r: 
-        voicing_false_alarm(r['ref_voicing'], r['est_voicing']), axis=1)
+    results["RWC"]  = results[all_cols].apply(lambda r:
+        raw_chroma_accuracy(r[0], r[1], r[2], r[3]), raw=True, axis=1)
 
-    results["OA"] = results.apply(lambda r:
-        overall_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
+    print("RWC ...")
+
+    if dataset != "MDB-stem-synth": # Skip voicing for synth
+        results["VRR"]  = results.apply(lambda r: 
+            voicing_recall(r['ref_voicing'], r['est_voicing']), axis=1)
+
+        results["VRF"]  = results.apply(lambda r: 
+            voicing_false_alarm(r['ref_voicing'], r['est_voicing']), axis=1)
+
+        results["OA"] = results.apply(lambda r:
+            overall_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
 
     return results
 
@@ -85,48 +90,18 @@ def box_plot(results, dataset):
     plt.clf()
 
 
-def pitch_diff(ref_voicing, ref_cent, est_voicing, est_cent):
-    v = ref_voicing.astype(np.bool)
-    x = np.where(est_cent <= 0.0, 500, est_cent)
-    return np.abs(ref_cent[v] - x[v])
-
-
 def instruments_plot(results):
-    g = sns.FacetGrid(results, row='method', palette ="pastel")
+    results = results.sort_values(by=['avg_pitch'])
+    grouped_res = results.groupby('method')
 
-    def facet_scatter(x, y, c, **kwargs):
-        """Draw scatterplot with point colors from a faceted DataFrame columns."""
-        kwargs.pop("color")
-        plt.scatter(x, y, c=c, **kwargs)
-
-    vmin, vmax = 0, 1
-    cmap = sns.diverging_palette(240, 10, l=65, center="dark", as_cmap=True)
-
-    g = g.map(facet_scatter, 'instrument', 'avg_pitch', "RPA",
-            s=100, alpha=0.5, vmin=vmin, vmax=vmax, cmap=cmap)
-
-    # Make space for the colorbar
-    g.fig.subplots_adjust(right=.92)
-
-    # Define a new Axes where the colorbar will go
-    cax = g.fig.add_axes([.94, .25, .02, .6])
-
-    g.set_axis_labels('', 'Average Frequency of Track')
-
-    for ax in g.axes.flat:
-        labels = ax.get_xticklabels() # get x labels
-        ax.set_xticklabels(labels, rotation=90)
-
-    # Get a mappable object with the same colormap as the data
-    points = plt.scatter([], [], c=[], vmin=vmin, vmax=vmax, cmap=cmap)
-
-    # Draw the colorbar
-    g.fig.colorbar(points, cax=cax)
-    manager = plt.get_current_fig_manager()
-    manager.window.showMaximized()
-    plt.savefig("plots/instuments2.png")
-    plt.show()
-    plt.clf()
+    for name, group in grouped_res:
+        fig, ax = plt.subplots()
+        sc = ax.scatter(group['instrument'], group['avg_pitch'], c=group['RPA'], vmin=0, vmax=1, cmap=plt.get_cmap('RdBu'), alpha=0.5, edgecolors='black')
+        fig.set_size_inches(14, 7)
+        fig.colorbar(sc)
+        plt.xticks(rotation=90)
+        fig.tight_layout()
+        fig.savefig(f'plots/instuments_{name}.png')
 
 
 def read_label(path):
@@ -136,7 +111,9 @@ def read_label(path):
 
 
 def main():
-    args, conf = get_args_and_config()
+    parser, conf = get_parser_and_config()
+    args = parser.parse_args()
+    conf = conf[args.ds_name]
 
     # Load labels
     pool = Pool()
@@ -144,20 +121,16 @@ def main():
     labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
     print('Labels ready ...')
 
-
     # Load results
-    detectors = ["spice", "pyin"]
+    detectors = ["SPICE", "CREPE_TINY"]
     dfs = []
 
     for detector in detectors:
-        path = conf[f'{detector}_results_path']
+        path = os.path.join(conf['root_results_dir'], f'{args.ds_name}_{detector}.pkl')
         with open(path, 'rb') as f:
             df = pickle.load(f)
 
-        df['method'] = detector    # results_melt = pd.melt(results_df, id_vars=['file', 'method'],
-    #     value_vars=['RPA', 'RWC', 'VRR', 'VRF', 'OA'], var_name='metric')
-
-    # box_plot(results_melt, args.ds_name)
+        df['method'] = detector 
         dfs.append(labels_df.join(df.set_index('file'), on='file'))
     
     results_df = pd.concat(dfs)
@@ -174,14 +147,14 @@ def main():
 
 
     # Flat version
-    flat_df = pd.concat([results_df[['method', col]].explode(col) 
-                         for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
+    # flat_df = pd.concat([results_df[['method', col]].explode(col) 
+    #                      for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
 
-    flat_df = flat_df.loc[:,~flat_df.columns.duplicated()]
+    # flat_df = flat_df.loc[:,~flat_df.columns.duplicated()]
 
 
     # Cumulative density function
-    cumulative(flat_df, args.ds_name)
+    # cumulative(flat_df, args.ds_name)
 
 
     # Metrics
