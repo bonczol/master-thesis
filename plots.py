@@ -14,11 +14,15 @@ from utils import get_parser_and_config, get_time_series_paths, resample_zeros, 
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
-def add_voicing_and_cents(df, threshold):
-    if df['confidence'] is not np.NAN:
-        est_voicing = df['confidence'] > threshold
-    else:
-        est_voicing = df['pitch'] > 0
+def add_voicing_and_cents(df, conf):
+
+    threshold = conf.getfloat(f'{df["method"]}_threshold')
+    # if df['confidence'] is not np.NAN:
+    # if df["method"] == 'YIN':
+    #     print(df['confidence'])
+    est_voicing = df['confidence'] > threshold
+    # else:
+    #     est_voicing = df['pitch'] > 0
     
     df['ref_voicing'], df['ref_cent'], df['est_voicing'], df['est_cent'] = to_cent_voicing(
             df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing)
@@ -122,7 +126,7 @@ def main():
     print('Labels ready ...')
 
     # Load results
-    detectors = ["SPICE", "CREPE_TINY"]
+    detectors = ["SPICE", "CREPE_TINY", 'YIN']
     dfs = []
 
     for detector in detectors:
@@ -137,12 +141,13 @@ def main():
     print('Results ready ...')
 
     # Convert to cents
-    if args.ds_name == "MIR-1k":
-        threshold = 0.922
-    else:
-        threshold = 0.85
 
-    results_df = results_df.apply(lambda x: add_voicing_and_cents(x, threshold), axis=1)
+    # if args.ds_name == "MIR-1k":
+    #     threshold = 0.922
+    # else:
+    #     threshold = 0.85
+
+    results_df = results_df.apply(lambda x: add_voicing_and_cents(x, conf), axis=1)
     print("Converted to cents ...")
 
 

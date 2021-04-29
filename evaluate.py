@@ -3,15 +3,15 @@ import tensorflow as tf
 import tensorflow_hub as hub
 import numpy as np
 import pandas as pd
-import argparse
-import configparser
-from pydub import AudioSegment
 from utils import get_wav_paths, get_parser_and_config, semitones2hz
 from multiprocessing import Pool
 from scipy.io import wavfile
 import  pickle
 import crepe.crepe as crepe
+import librosa
 from tqdm import tqdm
+import aubio
+
 
 MAX_ABS_INT16 = 32768.0
 
@@ -31,6 +31,7 @@ def get_waveform(path):
     sr, waveform = wavfile.read(path, 'rb')
     duration = len(waveform) / float(sr)
     waveform = waveform / float(MAX_ABS_INT16)
+    waveform = waveform.astype(dtype=np.float32)
     return sr, waveform
 
 
@@ -58,7 +59,21 @@ def main():
             pitch_pred, confidence_pred = predict(model, waveform)
             pitch_pred, confidence_pred = pitch_pred.numpy(), confidence_pred.numpy()
         elif args.net == 'CREPE_TINY':
-            _, pitch_pred, confidence_pred, _ = crepe.predict(waveform, sr, model, step_size=10, verbose=0)
+            _, pitch_pred, confidence_pred, _ = crepe.predict(waveform, sr, model, step_size=32, verbose=0)
+        elif args.net == 'YIN':
+            pitch_o = aubio.pitch("yinfft", 2048, 512, sr)
+            pitch_pred = np.zeros(time.shape)
+            confidence_pred = np.ones(time.shape)
+
+            for i in range(len(waveform) // 512):
+                sample = waveform[(i*512):(i*512)+512]
+                pitch_pred[i] = pitch_o(sample)[0]
+                confidence_pred[i] = pitch_o.get_confidence()
+            cmin = confidence_pred.min()
+            cmax = confidence_pred.max()
+
+            confidence_pred = 1 - (confidence_pred - cmin) / (cmax - cmin)
+        
 
         f_name = os.path.splitext(os.path.basename(path))[0]
         rows.append([f_name, time, pitch_pred, confidence_pred])   

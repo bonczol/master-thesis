@@ -3,8 +3,8 @@
 @prefix :         <#> .
 
 :transform a vamp:Transform ;
-    vamp:plugin <http://vamp-plugins.org/rdf/plugins/pyin#pyin> ;
-    vamp:step_size "128"^^xsd:int ; 
+    vamp:plugin <http://vamp-plugins.org/rdf/plugins/pyin#yin> ;
+    vamp:step_size "512"^^xsd:int ; 
     vamp:block_size "2048"^^xsd:int ;
     vamp:parameter_binding [
         vamp:parameter [ vamp:identifier "lowampsuppression" ] ;
