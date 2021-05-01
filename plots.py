@@ -25,7 +25,7 @@ def add_voicing_and_cents(df, conf):
     #     est_voicing = df['pitch'] > 0
     
     df['ref_voicing'], df['ref_cent'], df['est_voicing'], df['est_cent'] = to_cent_voicing(
-            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing)
+            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing, hop=0.032)
 
     return df
 
@@ -126,7 +126,8 @@ def main():
     print('Labels ready ...')
 
     # Load results
-    detectors = ["SPICE", "CREPE_TINY", 'YIN']
+    # detectors = ["SPICE", "CREPE_TINY", 'YIN', 'hf0']
+    detectors = ['hf0']
     dfs = []
 
     for detector in detectors:
@@ -138,6 +139,7 @@ def main():
         dfs.append(labels_df.join(df.set_index('file'), on='file'))
     
     results_df = pd.concat(dfs)
+    results_df = results_df.dropna()
     print('Results ready ...')
 
     # Convert to cents
