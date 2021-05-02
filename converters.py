@@ -24,14 +24,15 @@ class Converter:
         
 
 class MirConverter(Converter):
-    def __init__(self, wav_path, label_path, out_wav_path, out_label_path):
+    def __init__(self, wav_path, label_path, out_wav_path, out_label_path, out_wav_background_path):
         self.label_t0 = 0.02
         self.label_ts = 0.02
+        self.out_wav_background_path = out_wav_background_path
         super().__init__(wav_path, label_path, out_wav_path, out_label_path)
 
     def convert(self):
         audio = self.get_audio()
-        audio = audio.split_to_mono()[1]
+        background, audio = audio.split_to_mono()
 
         freq_est = self.get_label()
         freq_est  = np.where(freq_est <= 0.0, freq_est, semitones2hz(freq_est - 3.5))
@@ -40,6 +41,7 @@ class MirConverter(Converter):
         time_series = np.transpose(np.vstack((t, freq_est)))
 
         audio.export(self.out_wav_path, format='wav')
+        background.export(self.out_wav_background_path, format='wav')
         np.savetxt(self.out_label_path, time_series, delimiter=',', fmt='%1.6f')
 
 

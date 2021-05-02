@@ -10,6 +10,7 @@ import matlab.engine
 import time
 from utils import get_wav_paths, get_parser_and_config, semitones2hz
 from scipy.io import wavfile
+from detectors import Detector
 from tqdm import tqdm
 
 
@@ -45,52 +46,65 @@ def output2hz(pitch_output):
 
 def get_waveform(path):
     sr, waveform = wavfile.read(path, 'rb')
-    duration = len(waveform) / float(sr)
     waveform = waveform / float(MAX_ABS_INT16)
     waveform = waveform.astype(dtype=np.float32)
     return sr, waveform
 
 
-def evaluate(dataset, tracker_name, wav_dir_path, results_dir_path, yin_thresh=0.8):
+def extract_dataset_with_version(audio_input_dir):
+    dataset = os.path.basename(os.path.split(audio_input_dir)[0])
+    folder_parts = os.path.basename(audio_input_dir).split("_")
+    if len(folder_parts) > 1:
+        _, version, snr = folder_parts
+        return f'{dataset}_{version}_{snr}'
+    else:
+        return dataset
+
+
+def evaluate(detector, wav_dir_path, results_dir_path, yin_thresh=0.8):
     sr = 16000
     wav_paths = get_wav_paths(wav_dir_path)
     rows = []
 
-    if tracker_name == 'SPICE':
+    if detector == Detector.SPICE:
         tracker = hub.load("https://tfhub.dev/google/spice/2")
-    elif tracker_name == 'CREPE_TINY':
+    elif detector == Detector.CREPE_TINY:
         tracker = crepe.build_and_load_model('tiny')
-    elif tracker_name == 'YIN':
+    elif detector == Detector.YIN:
         tracker = aubio.pitch("yinfft", 1024, 512, sr)
         tracker.set_tolerance(yin_thresh)
-    elif tracker_name == 'hf0':
+    elif detector == Detector.HF0:
         eng = matlab.engine.start_matlab()
         eng.cd('./hf0')
         eng.mirverbose(0)
-        convnet = eng.getfield(eng.load('convModel.mat'), 'convnet')
+        tracker = eng.getfield(eng.load('convModel.mat'), 'convnet')
 
     for path in tqdm(wav_paths):
-        _, waveform = get_waveform(path)
+        read_sr, waveform = get_waveform(path)
+
+        if sr != read_sr:
+            raise Exception('Sampling rate missmatch')
+
         duration = len(waveform) / float(sr)
         model_time = np.arange(0, duration + 0.0001, 0.032)
 
         # Measure time of evaluation
         t_start = time.perf_counter()
 
-        if tracker_name == 'SPICE':
+        if detector == Detector.SPICE:
             pitch_pred, confidence_pred = predict(tracker, waveform)
             pitch_pred, confidence_pred = pitch_pred.numpy(), confidence_pred.numpy()
-        elif tracker_name == 'CREPE_TINY':
+        elif detector == Detector.CREPE_TINY:
             _, pitch_pred, confidence_pred, _ = crepe.predict(waveform, sr, tracker, step_size=32, verbose=0)
-        elif tracker_name == 'hf0':
-            pitch_pred, hf0_time, hf0_load_time = eng.PitchExtraction(os.path.abspath(path), convnet, nargout=3)
-        elif tracker_name == 'YIN':
+        elif detector == Detector.HF0:
+            pitch_pred, hf0_time, hf0_load_time = eng.PitchExtraction(os.path.abspath(path), tracker, nargout=3)
+        elif detector == Detector.YIN:
             pitch_pred, confidence_pred = predict_yin(tracker, waveform, len(model_time))
 
         t_end = time.perf_counter()
         elapsed_time = t_end - t_start
 
-        if tracker_name == 'hf0':
+        if detector == Detector.HF0:
             elapsed_time -= hf0_load_time
             pitch_pred = np.array(pitch_pred).ravel()
             hf0_time = np.array(hf0_time).ravel() - 0.032
@@ -99,8 +113,9 @@ def evaluate(dataset, tracker_name, wav_dir_path, results_dir_path, yin_thresh=0
         
         f_name = os.path.splitext(os.path.basename(path))[0]
         rows.append([f_name, model_time, pitch_pred, confidence_pred])   
-
-    save_path = os.path.join(results_dir_path, f'{dataset}_{tracker_name}.pkl')
+    
+    ds_with_version = extract_dataset_with_version(wav_dir_path)
+    save_path = os.path.join(results_dir_path, f'{ds_with_version}_{detector}.pkl')
     with open(save_path, 'wb') as f:
         df = pd.DataFrame(rows, columns=["file", "time", "pitch", "confidence"])
         pickle.dump(df, f)
@@ -110,9 +125,16 @@ def main():
     # tf.config.set_visible_devices([], 'GPU')
     parser, conf = get_parser_and_config()
     parser.add_argument('net', type=str)
+    parser.add_argument('--noise', type=str)
+    parser.add_argument('--snr', type=int)
     args = parser.parse_args()
     conf = conf[args.ds_name]
-    evaluate(args.ds_name, args.net, conf["output_dir_wav"], conf['root_results_dir'])
+    
+    input_dir = conf["output_dir_wav"]
+    if args.noise and args.snr:
+        input_dir = f'{input_dir}_{args.noise}_{args.snr}'
+
+    evaluate(Detector(args.net), input_dir, conf['root_results_dir'])
 
 
 

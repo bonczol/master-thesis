@@ -4,7 +4,7 @@ import numpy as np
 import os
 import argparse
 import configparser
-from utils import get_args_and_config
+import utils
 from converters import MirConverter, DummyConverter, MDBConverter
 from multiprocessing import Pool
 
@@ -18,7 +18,9 @@ def get_paths(dir, file_names, extension):
 
 
 def main():
-    args, conf = get_args_and_config()
+    parser, conf = utils.get_parser_and_config()
+    args = parser.parse_args()
+    conf = conf[args.ds_name]
 
     file_names = [os.path.splitext(f)[0] for f in  os.listdir(conf['input_dir_wav']) 
                   if not f.startswith('.') and f.endswith('.wav')] 
@@ -29,8 +31,9 @@ def main():
     out_label_paths = get_paths(conf['output_dir_label'], file_names, '.csv')
 
     if args.ds_name == 'MIR-1k':
-        converters = [MirConverter(w, l, ow, ol) 
-                      for w, l, ow, ol in zip(wav_paths, label_paths, out_wav_paths, out_label_paths)]
+        out_wav_background_paths = get_paths(conf['output_dir_wav_background'], file_names, '.wav')
+        converters = [MirConverter(w, l, ow, ol, owb) 
+                      for w, l, ow, ol, owb in zip(wav_paths, label_paths, out_wav_paths, out_label_paths, out_wav_background_paths)]
     elif args.ds_name == 'MDB-stem-synth':
         converters = [MDBConverter(w, l, ow, ol) 
                       for w, l, ow, ol in zip(wav_paths, label_paths, out_wav_paths, out_label_paths)]
