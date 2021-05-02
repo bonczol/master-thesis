@@ -126,7 +126,7 @@ def main():
     print('Labels ready ...')
 
     # Load results
-    # detectors = ["SPICE", "CREPE_TINY", 'YIN', 'hf0']
+    # detectors = ["SPICE", "CREPETINY", 'YIN', 'hf0']
     detectors = ['hf0']
     dfs = []
 

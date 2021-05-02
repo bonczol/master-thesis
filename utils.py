@@ -2,19 +2,9 @@ import os
 import re
 import argparse
 import numpy as np
-import scipy
 import configparser
 import mir_eval
 
-
-def load_waveforms_and_labels(wav_dir, labels_dir):
-    wav_files = sorted([os.path.join(wav_dir, f) for f in  os.listdir(wav_dir) if not f.startswith(".") and f.endswith(".wav")])
-    labels_files = sorted([os.path.join(labels_dir, f) for f in  os.listdir(labels_dir) if not f.startswith(".") and re.match(r".*\.(pv|csv)$", f)])
-
-    if len(wav_files) != len(labels_files):
-        raise Exception("Number of .wav files different than number of label files")
-
-    return wav_files, labels_files
 
 def semitones2hz(semitones):
     FMIN = 10.0
@@ -22,14 +12,15 @@ def semitones2hz(semitones):
     return FMIN * 2.0 ** (1.0 * semitones / BINS_PER_OCTAVE)
 
 
-def get_wav_paths(wav_dir):
-    return sorted([os.path.join(wav_dir, f) for f in  os.listdir(wav_dir) 
+def get_wav_paths(dir_):
+    return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
                         if not f.startswith(".") and f.endswith(".wav")])
 
 
 def get_time_series_paths(dir_):
     return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
                         if not f.startswith(".") and re.match(r".*\.(pv|csv)$", f)])
+
 
 def get_vocal_paths(dir_):
     return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
@@ -42,22 +33,6 @@ def get_parser_and_config():
     conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     conf.read('consts.conf')
     return parser, conf
-
-
-def resample_zeros(times, frequencies, times_new):
-    frequencies_held = np.array(frequencies)
-    for n, frequency in enumerate(frequencies[1:]):
-        if frequency == 0:
-            frequencies_held[n + 1] = frequencies_held[n]
-
-    frequencies_resampled = scipy.interpolate.interp1d(times, frequencies_held, 'linear', fill_value="extrapolate")(times_new)
-    frequency_mask = scipy.interpolate.interp1d(times, frequencies, 'zero', fill_value="extrapolate")(times_new)
-    frequencies_resampled *= (frequency_mask != 0)
-    return frequencies_resampled
-
-
-def resample(times, frequencies, times_new):
-    return scipy.interpolate.interp1d(times, frequencies, 'linear', fill_value="extrapolate")(times_new)
 
 
 def first_nonzero(arr, axis, invalid_val=-1):

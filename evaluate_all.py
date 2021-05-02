@@ -1,20 +1,28 @@
 import evaluate
 import utils
-from detectors import Detector
 
 
 def main():
-    _, conf = utils.get_parser_and_config()
-
     dataset = 'MIR-1k'
     noise_types = ['acco']
     snrs = [20, 10, 0]
+    detectors = ["SPICE", "CREPETINY", 'YIN']
 
-    for detector in Detector:
+    _, conf = utils.get_parser_and_config()
+    conf = conf[dataset]
+
+    # Clean
+    for detector in detectors:
+        print(f'{dataset} - CLEAN - {detector}')
+        evaluate.evaluate(detector, conf["processed_wav_dir"], conf['results_dir'])
+
+    # With noise
+    for detector in detectors:
         for noise_type in noise_types:
             for snr in snrs:
-                in_dir = f'{conf["output_dir_wav"]}_{noise_type}_{snr}'
-                evaluate.evaluate(detector, in_dir)
+                print(f'{dataset} - {noise_type} - {snr} - {detector}')
+                in_dir = f'{conf["processed_wav_dir"]}_{noise_type}_{snr}'
+                evaluate.evaluate(detector, in_dir, conf['results_dir'])
     
 
 

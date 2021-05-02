@@ -1,11 +1,7 @@
 import numpy as np
-import os
 import shutil
 from pydub import AudioSegment
-from mir_eval.melody import hz2cents
-from pydub.utils import mediainfo
-from utils import semitones2hz, resample_zeros
-import scipy
+from utils import semitones2hz
 
 
 class Converter:
