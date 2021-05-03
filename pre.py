@@ -1,5 +1,8 @@
 import os
 import utils
+import numpy as np
+import pandas as pd
+import pickle
 from converters import MirConverter, MDBConverter
 from multiprocessing import Pool
 
@@ -10,6 +13,12 @@ def convert_example(converter):
 
 def get_paths(dir, file_names, extension):
     return [os.path.join(dir, fn + extension) for fn in file_names]
+
+
+def read_label(path):
+    ts = np.loadtxt(path, delimiter=",")
+    f_name = os.path.splitext(os.path.basename(path))[0]
+    return [f_name, ts[:,0], ts[:,1]]
 
 
 def main():
@@ -39,6 +48,11 @@ def main():
 
     with Pool() as pool:
         pool.map(convert_example, converters)
+        labels = pool.map(read_label, out_label_paths)
+
+    labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
+    with open(conf['processed_label_binary'], 'wb') as f:
+        pickle.dump(labels_df, f)
 
 
 if __name__ == '__main__':
