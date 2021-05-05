@@ -3,30 +3,29 @@ import os
 import configparser
 import pandas as pd
 import pickle 
-from plots import read_label, add_voicing_and_cents
-from utils import get_time_series_paths
+from plots import add_voicing_and_cents
 from mir_eval.melody import raw_pitch_accuracy
 from evaluate import evaluate
 
 
 def main():
-    dataset = 'MIR-1k'
+    dataset = 'MDB-stem-synth'
     tracker = 'YIN'
 
     conf = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     conf.read('consts.conf')
     conf = conf[dataset]
 
-    labels = map(read_label, get_time_series_paths(conf['output_dir_label']))
-    labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
+    with open(conf['processed_label_binary'], 'rb') as f:
+        labels_df = pickle.load(f)
 
     thresholds = np.arange(0.1, 1, 0.05)
     rpa = []
 
     for t in thresholds:
-        evaluate(dataset, tracker, conf['output_dir_wav'], conf['root_results_dir'], t)
+        evaluate(tracker, conf['processed_wav_dir'], conf['results_dir'], t)
 
-        with open(os.path.join(conf['root_results_dir'], f'{dataset}_{tracker}.pkl'), 'rb') as f:
+        with open(os.path.join(conf['results_dir'], f'{dataset}_{tracker}.pkl'), 'rb') as f:
             df = pickle.load(f)
 
         df['method'] = tracker 

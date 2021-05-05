@@ -3,6 +3,9 @@ import utils
 
 
 def main():
+    NOISE = False
+
+    # dataset = 'MDB-stem-synth'
     dataset = 'MIR-1k'
     noise_types = ['acco']
     snrs = [20, 10, 0]
@@ -17,12 +20,13 @@ def main():
         evaluate.evaluate(detector, conf["processed_wav_dir"], conf['results_dir'])
 
     # With noise
-    for detector in detectors:
-        for noise_type in noise_types:
-            for snr in snrs:
-                print(f'{dataset} - {noise_type} - {snr} - {detector}')
-                in_dir = f'{conf["processed_wav_dir"]}_{noise_type}_{snr}'
-                evaluate.evaluate(detector, in_dir, conf['results_dir'])
+    if NOISE:
+        for detector in detectors:
+            for noise_type in noise_types:
+                for snr in snrs:
+                    print(f'{dataset} - {noise_type} - {snr} - {detector}')
+                    in_dir = f'{conf["processed_wav_dir"]}_{noise_type}_{snr}'
+                    evaluate.evaluate(detector, in_dir, conf['results_dir'])
     
 
 

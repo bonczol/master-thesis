@@ -51,6 +51,8 @@ def main():
         labels = pool.map(read_label, out_label_paths)
 
     labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
+    labels_df['duration'] = labels_df['label_time'].map(lambda x: x[-1])
+
     with open(conf['processed_label_binary'], 'wb') as f:
         pickle.dump(labels_df, f)
 

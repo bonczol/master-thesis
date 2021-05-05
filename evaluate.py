@@ -56,6 +56,7 @@ def evaluate(detector, wav_dir_path, results_dir_path, yin_thresh=0.8):
     wav_paths = get_wav_paths(wav_dir_path)
     rows = []
 
+    # Init
     if detector == 'SPICE':
         tracker = hub.load("https://tfhub.dev/google/spice/2")
     elif detector == 'CREPETINY':
@@ -69,6 +70,7 @@ def evaluate(detector, wav_dir_path, results_dir_path, yin_thresh=0.8):
         tracker = aubio.pitch("yinfft", 1024, 512, sr)
         tracker.set_tolerance(yin_thresh)
 
+    # Eval
     for path in tqdm(wav_paths):
         read_sr, waveform = get_waveform(path)
 
@@ -102,7 +104,7 @@ def evaluate(detector, wav_dir_path, results_dir_path, yin_thresh=0.8):
             confidence_pred = np.array(pitch_pred > 0, dtype=np.int)
         
         f_name = os.path.splitext(os.path.basename(path))[0]
-        rows.append([f_name, model_time, pitch_pred, confidence_pred])   
+        rows.append([f_name, model_time, pitch_pred, confidence_pred, elapsed_time])   
     
     dataset = os.path.basename(os.path.split(wav_dir_path)[0])
     folder_parts = os.path.basename(wav_dir_path).split("_")
@@ -115,7 +117,7 @@ def evaluate(detector, wav_dir_path, results_dir_path, yin_thresh=0.8):
 
     save_path = os.path.join(results_dir_path, filename)
     with open(save_path, 'wb') as f:
-        df = pd.DataFrame(rows, columns=["file", "time", "pitch", "confidence"])
+        df = pd.DataFrame(rows, columns=["file", "time", "pitch", "confidence", "evaluation_time"])
         pickle.dump(df, f)
 
 

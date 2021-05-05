@@ -1,31 +1,25 @@
+from matplotlib import markers
 import pandas as pd
 import numpy as np
-import argparse
-import configparser
 import matplotlib.pyplot as plt
 import pickle
 import os
 import seaborn as sns
 import yaml
 import glob
-import itertools
+from collections import defaultdict
 from multiprocessing import Pool
-from utils import get_parser_and_config, get_time_series_paths, resample_zeros, resample, get_vocal_paths, rpa_multi_tolerance
+from utils import get_parser_and_config, get_time_series_paths, rpa_multi_tolerance
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
-def add_voicing_and_cents(df, conf):
-
-    threshold = conf.getfloat(f'{df["method"]}_threshold')
-    # if df['confidence'] is not np.NAN:
-    # if df["method"] == 'YIN':
-    #     print(df['confidence'])
+def add_voicing_and_cents(df, conf, threshold=None):
+    if threshold is None:
+        threshold = conf.getfloat(f'threshold_{df["method"]}')
     est_voicing = df['confidence'] > threshold
-    # else:
-    #     est_voicing = df['pitch'] > 0
     
     df['ref_voicing'], df['ref_cent'], df['est_voicing'], df['est_cent'] = to_cent_voicing(
-            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing, hop=0.032)
+            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing)
 
     return df
 
@@ -84,6 +78,24 @@ def calc_metrics(results, dataset):
     return results
 
 
+def calc_latency(results, output_path, frame_size=1024, sample_rate=16000):
+    latency = results.groupby(['method']).apply(
+            lambda group: group['evaluation_time'].sum() / (group['duration'].sum() * sample_rate / frame_size)
+        ).apply(lambda x: x * 100)
+    latency.to_csv(output_path)
+    print(latency.head())
+
+
+def metrics_summary(results, metrics, output_path):
+    summary = results.groupby(['method'])[metrics] \
+        .agg(['mean', 'std']) \
+        .apply(lambda x: x * 100) \
+        .round(decimals=2)
+
+    summary.to_csv(output_path)
+    print(summary.head())
+
+
 def box_plot(results, dataset):
     sns.set_theme(style="ticks", palette="pastel")
     sns.boxplot(x="metric", y="value",
@@ -108,10 +120,54 @@ def instruments_plot(results):
         fig.savefig(f'plots/instuments_{name}.png')
 
 
-def read_label(path):
-    ts = np.loadtxt(path, delimiter=",")
-    f_name = os.path.splitext(os.path.basename(path))[0]
-    return [f_name, ts[:,0], ts[:,1]]
+def instruments_comparsion(results, dataset):
+    avg_pitch_by_instrument = results.groupby(['instrument'])['avg_pitch'].agg('mean').rename('avg_instrument_pitch')
+    results_instument_pitch =  results.join(avg_pitch_by_instrument, on="instrument")
+    results_instument_pitch.sort_values(by=['avg_instrument_pitch'], inplace=True)
+
+    rpa_by_instrument = results_instument_pitch.groupby(['method', 'instrument'], sort=False)['RPA', 'avg_instrument_pitch'].mean()
+    rpa_by_instrument = rpa_by_instrument.reset_index()
+
+    fig, ax1 = plt.subplots()
+    ax1 = sns.scatterplot(y="RPA", x="instrument", hue="method", style="method", data=rpa_by_instrument,  s=50)
+    plt.xticks(rotation=90)
+    ax1.set_xlabel("Instruments")
+    ax2 = ax1.twinx()
+    ax2 = sns.lineplot(x="instrument", y="avg_instrument_pitch", data=rpa_by_instrument,  style=True, dashes=[(2,2)], color='red')
+    ax2.set_ylabel("Average frequency of instrument", color='red')
+    ax2.get_legend().remove()
+    fig.set_size_inches(10, 6)
+    fig.tight_layout()
+    fig.savefig(f'plots/instruments_comp_{dataset}.png')
+
+    # catplot = sns.scatterplot(y="RPA", x="instrument", hue="method", style="method", data=rpa_by_instrument,  s=50)
+    # plt.xticks(rotation=90)
+    # fig = catplot.get_figure()
+    # fig.set_size_inches(14, 7)
+    # fig.tight_layout()
+    # fig.savefig(f'plots/instruments_comp_{dataset}.png')
+
+
+def grid_search(results_raw, conf):
+    thresholds = np.arange(0.5, 1, 0.01)
+    params = defaultdict(list)
+
+    for t in thresholds:
+        print(f'Threshold = {t}')
+        results_cents = results_raw.apply(lambda x: add_voicing_and_cents(x, conf, t), axis=1)
+        results_cents["OA"] = results_cents.apply(lambda r:
+                overall_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
+     
+        means = results_cents.groupby(['method'])["OA"].mean()
+        for method, mean_oa in means.iteritems():
+            params[method].append(mean_oa)
+
+    for key in params.keys():
+        best_treshold_idx = np.argmax(params[key])
+        best_treshold = thresholds[best_treshold_idx]
+        print(key, best_treshold, f'oa = {np.max(params[key])}')
+
+
 
 
 def main():
@@ -120,18 +176,23 @@ def main():
     conf = conf[args.ds_name]
 
     # Load labels
-    pool = Pool()
-    labels = pool.map(read_label, get_time_series_paths(conf['output_dir_label']))
-    labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
+    with open(conf['processed_label_binary'], 'rb') as f:
+        labels_df = pickle.load(f)
+        
     print('Labels ready ...')
 
     # Load results
-    # detectors = ["SPICE", "CREPETINY", 'YIN', 'hf0']
-    detectors = ['hf0']
+    detectors = [
+        "SPICE", 
+        "CREPETINY", 
+        'YIN', 
+        # 'hf0'
+    ]
+
     dfs = []
 
     for detector in detectors:
-        path = os.path.join(conf['root_results_dir'], f'{args.ds_name}_{detector}.pkl')
+        path = os.path.join(conf['results_dir'], f'{args.ds_name}_{detector}.pkl')
         with open(path, 'rb') as f:
             df = pickle.load(f)
 
@@ -142,13 +203,10 @@ def main():
     results_df = results_df.dropna()
     print('Results ready ...')
 
+    # grid_search(results_df, conf)
+
+
     # Convert to cents
-
-    # if args.ds_name == "MIR-1k":
-    #     threshold = 0.922
-    # else:
-    #     threshold = 0.85
-
     results_df = results_df.apply(lambda x: add_voicing_and_cents(x, conf), axis=1)
     print("Converted to cents ...")
 
@@ -165,11 +223,23 @@ def main():
 
 
     # Metrics
+    if args.ds_name == "MIR-1k":
+        metrics = ['RPA', 'RWC', 'VRR', 'VRF', 'OA']
+    else:
+        metrics = ['RPA', 'RWC']
+
     results_df = calc_metrics(results_df, args.ds_name)
-    mean = results_df.groupby(['method']).mean() * 100
-    std = results_df.groupby(['method']).std() * 100
-    print(mean.head(10))
-    print(std.head(10))
+    metrics_summary(results_df, metrics, f'{conf["results_dir"]}/{args.ds_name}_summary.csv')
+    print('\n')
+    calc_latency(results_df, f'{conf["results_dir"]}/{args.ds_name}_latency.csv')
+
+
+
+    # print('\VRF')
+    # x = results_df.sort_values(by=['VRF'], ascending=False)
+    # # results_df.hist(column=['VRF'], bins=24)
+    # # plt.show()
+    # print(x.head(10))
     
 
     # Box plots
@@ -180,10 +250,13 @@ def main():
     
     # Insturments
     if args.ds_name == "MDB-stem-synth":
-        instruments = get_instruments(conf['meta_data_dir'])
+        instruments = get_instruments(conf['metadata_dir'])
         results_df['instrument'] = results_df['file'].map(instruments)
         results_df['avg_pitch']  = results_df['label_pitch'].apply(lambda pitch: np.sum(pitch) / np.count_nonzero(pitch))
-        instruments_plot(results_df)
+        # instruments_plot(results_df)
+
+        instruments_comparsion(results_df, args.ds_name)
+
 
 
 
