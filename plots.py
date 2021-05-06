@@ -1,4 +1,3 @@
-from matplotlib import markers
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import yaml
 import glob
 from collections import defaultdict
 from multiprocessing import Pool
-from utils import get_parser_and_config, get_time_series_paths, rpa_multi_tolerance
+from utils import get_parser_and_config, rpa_multi_tolerance
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
@@ -139,13 +138,6 @@ def instruments_comparsion(results, dataset):
     fig.set_size_inches(10, 6)
     fig.tight_layout()
     fig.savefig(f'plots/instruments_comp_{dataset}.png')
-
-    # catplot = sns.scatterplot(y="RPA", x="instrument", hue="method", style="method", data=rpa_by_instrument,  s=50)
-    # plt.xticks(rotation=90)
-    # fig = catplot.get_figure()
-    # fig.set_size_inches(14, 7)
-    # fig.tight_layout()
-    # fig.savefig(f'plots/instruments_comp_{dataset}.png')
 
 
 def grid_search(results_raw, conf):
