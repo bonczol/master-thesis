@@ -132,7 +132,7 @@ dataset/
 processed/
 plots/
 results/
-crepe/
+crepe2/
 medleydb-master/
 hf0/
 test.py

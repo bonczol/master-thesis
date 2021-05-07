@@ -16,9 +16,9 @@ def add_voicing_and_cents(df, conf, threshold=None):
     if threshold is None:
         threshold = conf.getfloat(f'threshold_{df["method"]}')
     est_voicing = df['confidence'] > threshold
-    
+    # print('start', df['ptich'], 'end')
     df['ref_voicing'], df['ref_cent'], df['est_voicing'], df['est_cent'] = to_cent_voicing(
-            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing)
+            df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing, hop=0.032)
 
     return df
 
@@ -77,9 +77,10 @@ def calc_metrics(results, dataset):
     return results
 
 
+# How much time (ms) does it take to evaluate 1s of audio
 def calc_latency(results, output_path, frame_size=1024, sample_rate=16000):
     latency = results.groupby(['method']).apply(
-            lambda group: group['evaluation_time'].sum() / (group['duration'].sum() * sample_rate / frame_size)
+            lambda group: group['evaluation_time'].sum() / (group['duration'].sum())
         ).apply(lambda x: x * 100)
     latency.to_csv(output_path)
     print(latency.head())
@@ -178,7 +179,7 @@ def main():
         "SPICE", 
         "CREPETINY", 
         'YIN', 
-        # 'hf0'
+        # 'HF0'
     ]
 
     dfs = []

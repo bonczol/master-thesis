@@ -4,6 +4,19 @@ import argparse
 import numpy as np
 import configparser
 import mir_eval
+import scipy
+
+
+def resample_zeros(times, frequencies, times_new):
+    frequencies_held = np.array(frequencies)
+    for n, frequency in enumerate(frequencies[1:]):
+        if frequency == 0:
+            frequencies_held[n + 1] = frequencies_held[n]
+
+    frequencies_resampled = scipy.interpolate.interp1d(times, frequencies_held, 'linear', fill_value="extrapolate")(times_new)
+    frequency_mask = scipy.interpolate.interp1d(times, frequencies, 'zero', fill_value="extrapolate")(times_new)
+    frequencies_resampled *= (frequency_mask != 0)
+    return frequencies_resampled
 
 
 def get_parser_and_config():
