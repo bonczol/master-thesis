@@ -1,5 +1,6 @@
 import numpy as np
 import shutil
+import array
 from pydub import AudioSegment
 from utils import semitones2hz
 
@@ -16,7 +17,7 @@ class Converter:
         return AudioSegment.from_file(self.wav_path)
 
     def get_label(self):
-        return np.loadtxt(self.label_path)
+        return np.loadtxt(self.label_path, delimiter=',')
         
 
 class MirConverter(Converter):
@@ -47,9 +48,12 @@ class MDBConverter(Converter):
 
     def convert(self):
         audio = self.get_audio()
+
+        
         audio = audio.set_frame_rate(self.sample_rate)
         audio.export(self.out_wav_path, format='wav')
         shutil.copyfile(self.label_path, self.out_label_path)
+
 
 
 class DummyConverter(Converter):

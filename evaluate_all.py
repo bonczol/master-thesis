@@ -1,23 +1,24 @@
+from pickle import TRUE
 import evaluate
 import utils
 
 
 def main():
-    NOISE = False
+    NOISE = True
 
     # dataset = 'MDB-stem-synth'
     dataset = 'MIR-1k'
     noise_types = ['acco']
     snrs = [20, 10, 0]
-    detectors = ["SPICE", "CREPETINY", 'YIN']
+    detectors = ["SPICE", "CREPETINY", 'YIN', 'DDSPINV']
 
     _, conf = utils.get_parser_and_config()
     conf = conf[dataset]
 
     # Clean
-    for detector in detectors:
-        print(f'{dataset} - CLEAN - {detector}')
-        evaluate.evaluate(detector, conf["processed_wav_dir"], conf['results_dir'])
+    # for detector in detectors:
+    #     print(f'{dataset} - CLEAN - {detector}')
+    #     evaluate.evaluate(detector, conf["processed_wav_dir"], conf['results_dir'])
 
     # With noise
     if NOISE:

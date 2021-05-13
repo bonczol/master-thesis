@@ -26,7 +26,8 @@ def main():
     detectors = [
         "SPICE", 
         "CREPETINY", 
-        'YIN', 
+        'YIN',
+        'DDSPINV'
         # 'hf0'
     ]
 

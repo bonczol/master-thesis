@@ -1,15 +1,10 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-import tensorflow as tf
-import tensorflow_hub as hub
 import numpy as np
 import pandas as pd
 import pickle
-import aubio
-import crepe2.crepe as crepe
-import matlab.engine
-import time
-from utils import get_wav_paths, get_parser_and_config, semitones2hz, resample_zeros
+import math
+from utils import get_wav_paths, get_parser_and_config
 from scipy.io import wavfile
 from tqdm import tqdm
 from trackers import Spice, Crepe, Yin, InverseTracker
@@ -37,24 +32,26 @@ def evaluate(tracker_name, wav_dir_path, results_dir_path, yin_thresh=0.8, hf0_o
         tracker = Crepe('tiny', SR)
     elif tracker_name == 'YIN':
         tracker = Yin(SR, yin_thresh)
+    elif tracker_name == "DDSPINV":
+        tracker = InverseTracker('mdb_stem_synth_ckpt')
+    else:
+        raise Exception(f'{tracker_name} not found')
+
 
     if wavs_num is None:
         wavs_num = len(wav_paths)
 
     # Eval
-    for path in tqdm(wav_paths[:wavs_num]):
+    for path in tqdm(wav_paths):
         read_sr, waveform = get_waveform(path)
 
         if SR != read_sr:
             raise Exception('Sampling rate missmatch')
+    
+        time, pitch_pred, confidence_pred, evaluation_time = tracker.predict(waveform)
 
-        duration = len(waveform) / float(SR)
-        model_time = np.arange(0, duration + 0.0001, 0.032)
-
-        pitch_pred, confidence_pred, prediction_time = tracker.predict(waveform)
-        
         f_name = os.path.splitext(os.path.basename(path))[0]
-        rows.append([f_name, model_time, pitch_pred, confidence_pred, prediction_time])   
+        rows.append([f_name, time, pitch_pred, confidence_pred, evaluation_time])   
     
     dataset = os.path.basename(os.path.split(wav_dir_path)[0])
     folder_parts = os.path.basename(wav_dir_path).split("_")

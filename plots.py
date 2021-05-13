@@ -97,13 +97,11 @@ def metrics_summary(results, metrics, output_path):
 
 
 def box_plot(results, dataset):
-    sns.set_theme(style="ticks", palette="pastel")
-    sns.boxplot(x="metric", y="value",
-            hue="method", palette=["m", "g"],
-            data=results)
-    sns.despine(offset=10, trim=True)
-    plt.savefig(f'plots/box_plot_{dataset}.png')
-    plt.clf()
+    box_plot = sns.boxplot(x="metric", y="value", hue="method", data=results)
+    box_plot.legend(loc='lower left')
+    fig = box_plot.get_figure()
+    fig.set_size_inches(10, 6)
+    fig.savefig(f'plots/box_plot_{dataset}.png')
 
 
 def instruments_plot(results):
@@ -113,7 +111,7 @@ def instruments_plot(results):
     for name, group in grouped_res:
         fig, ax = plt.subplots()
         sc = ax.scatter(group['instrument'], group['avg_pitch'], c=group['RPA'], vmin=0, vmax=1, cmap=plt.get_cmap('RdBu'), alpha=0.5, edgecolors='black')
-        fig.set_size_inches(14, 7)
+        fig.set_size_inches(10, 6)
         fig.colorbar(sc)
         plt.xticks(rotation=90)
         fig.tight_layout()
@@ -179,6 +177,7 @@ def main():
         "SPICE", 
         "CREPETINY", 
         'YIN', 
+        # 'DDSPINV'
         # 'HF0'
     ]
 
@@ -205,14 +204,14 @@ def main():
 
 
     # Flat version
-    # flat_df = pd.concat([results_df[['method', col]].explode(col) 
-    #                      for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
+    flat_df = pd.concat([results_df[['method', col]].explode(col) 
+                         for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
 
-    # flat_df = flat_df.loc[:,~flat_df.columns.duplicated()]
+    flat_df = flat_df.loc[:,~flat_df.columns.duplicated()]
 
 
     # Cumulative density function
-    # cumulative(flat_df, args.ds_name)
+    cumulative(flat_df, args.ds_name)
 
 
     # Metrics
@@ -237,7 +236,7 @@ def main():
 
     # Box plots
     # results_melt = pd.melt(results_df, id_vars=['file', 'method'],
-    #     value_vars=['RPA', 'RWC', 'VRR', 'VRF', 'OA'], var_name='metric')
+    #     value_vars=metrics, var_name='metric')
 
     # box_plot(results_melt, args.ds_name)
     

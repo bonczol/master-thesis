@@ -3,9 +3,11 @@ import utils
 import numpy as np
 import pandas as pd
 import pickle
+import matplotlib.pyplot as plt
 from converters import MirConverter, MDBConverter
 from multiprocessing import Pool
 
+pd.options.display.max_rows = 50
 
 def convert_example(converter):
     converter.convert()
@@ -52,6 +54,9 @@ def main():
 
     labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
     labels_df['duration'] = labels_df['label_time'].map(lambda x: x[-1])
+
+    x = labels_df[['file', 'duration']].sort_values(by=['duration'], ascending=False)
+    print(x.head(30))
 
     with open(conf['processed_label_binary'], 'wb') as f:
         pickle.dump(labels_df, f)

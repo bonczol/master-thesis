@@ -12,9 +12,12 @@ import time
 
 
 class Tracker: 
+    def __init__(self):
+        self.step_size = 32
+        self.hop = 512
+
     def predict(self, audio):
         pass
-        
 
 class Spice(Tracker):
     def __init__(self):
@@ -26,7 +29,8 @@ class Spice(Tracker):
         model_output = self.model.signatures["serving_default"](tf.constant(audio, tf.float32))
         pitch_pred = self._output2hz(model_output["pitch"])
         confidence_pred = 1 - model_output["uncertainty"]
-        return pitch_pred.numpy(), confidence_pred.numpy(), time.perf_counter() - t0
+        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        return time_, pitch_pred.numpy(), confidence_pred.numpy(), time.perf_counter() - t0
 
     def _output2hz(self, pitch_output):
         PT_OFFSET = 25.58
@@ -44,44 +48,39 @@ class Crepe(Tracker):
 
     def predict(self, audio):
         t0 = time.perf_counter()
-        _, pitch_pred, confidence_pred, _ = crepe.predict(audio, self.sr, self.model, step_size=32, verbose=0)
-        return pitch_pred, confidence_pred , time.perf_counter() - t0
+        time_, pitch_pred, confidence_pred, _ = crepe.predict(audio, self.sr, self.model, step_size=32, verbose=0)
+        return time_, pitch_pred, confidence_pred , time.perf_counter() - t0
 
 
 class Yin(Tracker):
     def __init__(self, sr, threshold):
         self.yin = aubio.pitch("yinfft", 1024, 512, sr)
         self.yin.set_tolerance(threshold)
-        self.hop = 512
         super().__init__()
 
 
     def predict(self, audio):
         t0 = time.perf_counter()
-        n = len(audio) // self.hop + 1
-        pitch_pred = np.zeros(n)
-        confidence_pred = np.zeros(n)
-
-        for i in range(0, len(audio) // self.hop):
-            start = i * self.hop
-            end = start + 512
-            sample = audio[start:end]
-            pitch_pred[i] = self.yin(sample)[0]
-            confidence_pred[i] = self.yin.get_confidence()
-
-        cmin = confidence_pred.min()
-        cmax = confidence_pred.max()
-
+        results = [self._nth_frame_pitch(audio, i) for i in range(0, len(audio) // self.hop)]
+        pitch_pred, confidence_pred = [np.array(t) for t in zip(*results)]
+        cmin, cmax = confidence_pred.min(), confidence_pred.max()
         confidence_pred = 1 - (confidence_pred - cmin) / (cmax - cmin + 0.0001)
-        return pitch_pred, confidence_pred, time.perf_counter() - t0
+        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
+
+    def _nth_frame_pitch(self, audio, n):
+        start = n * self.hop
+        end = start + 512
+        sample = audio[start:end]
+        return self.yin(sample)[0], self.yin.get_confidence()
 
 
 class InverseTracker(Tracker):
     def __init__(self, model_dir):
         self.model_dir = model_dir
-        self.ckpt = self._get_checpoint_path
-        self.gin_file = 'urmp_ckpt/operative_config-1281000.gin'
+        self.ckpt = self._get_checpoint_path()
+        self.gin_file = os.path.join(self.model_dir, 'operative_config-1281000.gin')
         self.hop = 512
 
         with gin.unlock_config():
@@ -111,10 +110,19 @@ class InverseTracker(Tracker):
         model = ddsp.training.models.TranscribingAutoencoder()
         model.restore(self.ckpt)
 
+
+
+        t0 = time.perf_counter()
         controls = model.get_controls({'audio': audio}, training=False)
+        print(model.summary())
+
+        evaluation_time =  time.perf_counter() - t0
+
         pitch_pred = controls['f0_hz']
-        confidence_pred = np.ones(pitch_pred)
-        return pitch_pred, confidence_pred
+        pitch_pred = pitch_pred.numpy().ravel()
+        confidence_pred = np.ones(pitch_pred.shape)
+        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        return time_, pitch_pred, confidence_pred, evaluation_time
 
 
 
