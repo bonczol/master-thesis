@@ -17,12 +17,6 @@ def get_paths(dir, file_names, extension):
     return [os.path.join(dir, fn + extension) for fn in file_names]
 
 
-def read_label(path):
-    ts = np.loadtxt(path, delimiter=",")
-    f_name = os.path.splitext(os.path.basename(path))[0]
-    return [f_name, ts[:,0], ts[:,1]]
-
-
 def main():
     parser, conf = utils.get_parser_and_config()
     args = parser.parse_args()
@@ -50,7 +44,7 @@ def main():
 
     with Pool() as pool:
         pool.map(convert_example, converters)
-        labels = pool.map(read_label, out_label_paths)
+        labels = pool.map(utils.read_label, out_label_paths)
 
     labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
     labels_df['duration'] = labels_df['label_time'].map(lambda x: x[-1])

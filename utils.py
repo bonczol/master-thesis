@@ -27,12 +27,6 @@ def get_parser_and_config():
     return parser, conf
 
 
-def get_labels(dir_):
-    pool = Pool()
-    labels = pool.map(read_label, get_time_series_paths(conf['output_dir_label']))
-    labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
-
-
 def read_label(path):
     ts = np.loadtxt(path, delimiter=",")
     f_name = os.path.splitext(os.path.basename(path))[0]
@@ -52,17 +46,6 @@ def get_time_series_paths(dir_):
 def get_vocal_paths(dir_):
     return sorted([os.path.join(dir_, f) for f in  os.listdir(dir_) 
                         if not f.startswith(".") and re.match(r".*\.(vocal)$", f)])
-
-
-def first_nonzero(arr, axis, invalid_val=-1):
-    mask = arr!=0
-    return np.where(mask.any(axis=axis), mask.argmax(axis=axis), invalid_val)
-
-
-def last_nonzero(arr, axis, invalid_val=-1):
-    mask = arr!=0
-    val = arr.shape[axis] - np.flip(mask, axis=axis).argmax(axis=axis) - 1
-    return np.where(mask.any(axis=axis), val, invalid_val)
 
 
 def semitones2hz(semitones):
@@ -92,3 +75,4 @@ def rpa_multi_tolerance(ref_voicing, ref_cent, est_voicing, est_cent,
     
     return [np.sum(ref_voicing[nonzero_freqs] * (freq_diff_cents < t)) / voiced
              for t in cent_tolerances]
+

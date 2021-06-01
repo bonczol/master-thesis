@@ -9,6 +9,7 @@ import gin
 import ddsp
 import ddsp.training
 import time
+from method import Method
 
 
 class Tracker: 
@@ -22,6 +23,7 @@ class Tracker:
 class Spice(Tracker):
     def __init__(self):
         self.model = hub.load("https://tfhub.dev/google/spice/2")
+        self.method = Method.SPICE
         super().__init__()
 
     def predict(self, audio):
@@ -44,6 +46,7 @@ class Crepe(Tracker):
         self.version = version
         self.sr = sr
         self.model = crepe.build_and_load_model(version)
+        self.method = Method.CREPE_TINY
         super().__init__()
 
     def predict(self, audio):
@@ -54,6 +57,7 @@ class Crepe(Tracker):
 
 class Yin(Tracker):
     def __init__(self, sr, threshold):
+        self.method = Method.YIN
         self.yin = aubio.pitch("yinfft", 1024, 512, sr)
         self.yin.set_tolerance(threshold)
         super().__init__()
@@ -78,6 +82,7 @@ class Yin(Tracker):
 
 class InverseTracker(Tracker):
     def __init__(self, model_dir):
+        self.method = Method.DDSP_INV
         self.model_dir = model_dir
         self.ckpt = self._get_checpoint_path()
         self.gin_file = os.path.join(self.model_dir, 'operative_config-1281000.gin')
