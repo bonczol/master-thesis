@@ -1,18 +1,21 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow_hub as hub
 import tensorflow as tf
-import crepe2.crepe as crepe
+import lib.crepe_mod.crepe as crepe
 import aubio
 import utils
 import numpy as np
-import os
 import gin
 import ddsp
 import ddsp.training
 import time
-from method import Method
+import consts
+from method import Tracker
+from pathlib import Path
 
 
-class Tracker: 
+class AbstractTracker: 
     def __init__(self):
         self.step_size = 32
         self.hop = 512
@@ -20,10 +23,10 @@ class Tracker:
     def predict(self, audio):
         pass
 
-class Spice(Tracker):
+class Spice(AbstractTracker):
     def __init__(self):
         self.model = hub.load("https://tfhub.dev/google/spice/2")
-        self.method = Method.SPICE
+        self.method = Tracker.SPICE
         super().__init__()
 
     def predict(self, audio):
@@ -41,24 +44,23 @@ class Spice(Tracker):
         return utils.semitones2hz(cqt_bin)
 
 
-class Crepe(Tracker):
-    def __init__(self, version, sr):
+class Crepe(AbstractTracker):
+    def __init__(self, version='tiny'):
         self.version = version
-        self.sr = sr
         self.model = crepe.build_and_load_model(version)
-        self.method = Method.CREPE_TINY
+        self.method = Tracker.CREPE_TINY
         super().__init__()
 
     def predict(self, audio):
         t0 = time.perf_counter()
-        time_, pitch_pred, confidence_pred, _ = crepe.predict(audio, self.sr, self.model, step_size=32, verbose=0)
+        time_, pitch_pred, confidence_pred, _ = crepe.predict(audio, consts.SR, self.model, step_size=32, verbose=0)
         return time_, pitch_pred, confidence_pred , time.perf_counter() - t0
 
 
-class Yin(Tracker):
-    def __init__(self, sr, threshold):
-        self.method = Method.YIN
-        self.yin = aubio.pitch("yinfft", 1024, 512, sr)
+class Yin(AbstractTracker):
+    def __init__(self, threshold=0.8):
+        self.method = Tracker.YIN
+        self.yin = aubio.pitch("yinfft", 1024, 512, consts.SR)
         self.yin.set_tolerance(threshold)
         super().__init__()
 
@@ -80,12 +82,12 @@ class Yin(Tracker):
         return self.yin(sample)[0], self.yin.get_confidence()
 
 
-class InverseTracker(Tracker):
-    def __init__(self, model_dir):
-        self.method = Method.DDSP_INV
-        self.model_dir = model_dir
+class InverseTracker(AbstractTracker):
+    def __init__(self, ckpt_version='urmp_ckpt'):
+        self.method = Tracker.DDSP_INV
+        self.model_dir = Path(consts.CHECKPOINTS_PATH) / ckpt_version
         self.ckpt = self._get_checpoint_path()
-        self.gin_file = os.path.join(self.model_dir, 'operative_config-1281000.gin')
+        self.gin_file = self.model_dir / 'operative_config-1281000.gin'
         self.hop = 512
 
         with gin.unlock_config():
@@ -96,7 +98,7 @@ class InverseTracker(Tracker):
     def _get_checpoint_path(self):
         ckpt_files = [f for f in tf.io.gfile.listdir(self.model_dir) if 'ckpt' in f]
         ckpt_name = ckpt_files[0].split('.')[0]
-        return os.path.join(self.model_dir, ckpt_name)
+        return self.model_dir / ckpt_name
 
     def predict(self, audio):
         audio = audio.reshape(1, -1)
@@ -115,11 +117,9 @@ class InverseTracker(Tracker):
         model = ddsp.training.models.TranscribingAutoencoder()
         model.restore(self.ckpt)
 
-
-
         t0 = time.perf_counter()
         controls = model.get_controls({'audio': audio}, training=False)
-        print(model.summary())
+        # print(model.summary())
 
         evaluation_time =  time.perf_counter() - t0
 
@@ -128,8 +128,3 @@ class InverseTracker(Tracker):
         confidence_pred = np.ones(pitch_pred.shape)
         time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
         return time_, pitch_pred, confidence_pred, evaluation_time
-
-
-
-
-            

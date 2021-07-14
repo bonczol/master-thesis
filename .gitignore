@@ -128,11 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-dataset/
-processed/
-plots/
-results/
-crepe2/
-medleydb-master/
-hf0/
+
+data/
+out/
+resources/
+.vscode/
+
 test.py

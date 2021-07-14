@@ -6,15 +6,15 @@ import os
 import seaborn as sns
 import yaml
 import glob
-import params
-from method import Method
+import consts
+from method import Tracker
 from collections import defaultdict
-from utils import get_parser_and_config, rpa_multi_tolerance
+from utils import rpa_multi_tolerance
 from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy, voicing_false_alarm, voicing_recall, overall_accuracy, to_cent_voicing
 
 
 def add_voicing_and_cents(df):
-    est_voicing = df['confidence'] > params.THRESHOLDS[Method(df["method"])]
+    est_voicing = df['confidence'] > consts.THRESHOLDS[Tracker(df["method"])]
 
     df['ref_voicing'], df['ref_cent'], df['est_voicing'], df['est_cent'] = to_cent_voicing(
             df['label_time'], df['label_pitch'], df['time'], df['pitch'], est_voicing, hop=0.032)
@@ -33,8 +33,8 @@ def cumulative(results, dataset):
     r = pd.melt(r, id_vars=['pitch_diff'], value_vars=list(grouped_res.groups.keys()), var_name='method', value_name='RPA')
     
     line_plot = sns.lineplot(data=r, x='pitch_diff', y="RPA", hue="method",
-        palette=params.COLORS, hue_order=[m.value for m in list(Method)])
-    line_plot.get_figure().savefig(f'plots/cumulative_{dataset}.png')
+        palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
+    line_plot.get_figure().savefig(dataset.get_plot_path('cumulative'))
     plt.clf()
 
 
@@ -100,15 +100,15 @@ def metrics_summary(results, metrics, output_path):
 
 def box_plot(results, dataset):
     box_plot = sns.boxplot(x="metric", y="value", hue="method", data=results, 
-        palette=params.COLORS, hue_order=[m.value for m in list(Method)])
+        palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
     box_plot.legend(loc='lower left')
     fig = box_plot.get_figure()
     fig.set_size_inches(10, 6)
-    fig.savefig(f'plots/box_plot_{dataset}.png')
+    fig.savefig(dataset.get_plot_path('box_plot'))
     plt.clf()
 
 
-def instruments_plot(results):
+def instruments_plot(results, dataset):
     results = results.sort_values(by=['avg_pitch'])
     grouped_res = results.groupby('method')
 
@@ -119,7 +119,7 @@ def instruments_plot(results):
         fig.colorbar(sc)
         plt.xticks(rotation=90)
         fig.tight_layout()
-        fig.savefig(f'plots/instuments_{name}.png')
+        fig.savefig(dataset.get_plot_path('instruments'))
     plt.clf()
 
 
@@ -141,7 +141,7 @@ def instruments_comparsion(results, dataset):
     ax2.get_legend().remove()
     fig.set_size_inches(10, 6)
     fig.tight_layout()
-    fig.savefig(f'plots/instruments_comp_{dataset}.png')
+    fig.savefig(dataset.get_plot_path('instrumentscomp'))
     plt.clf()
 
 
@@ -159,12 +159,9 @@ def instruments_comparsion(results, dataset):
 #         # for 
 
 
-
-
-
 def grid_search(results_raw, conf):
     thresholds = np.arange(0.5, 1, 0.01)
-    params = defaultdict(list)
+    consts = defaultdict(list)
 
     for t in thresholds:
         print(f'Threshold = {t}')
@@ -174,109 +171,69 @@ def grid_search(results_raw, conf):
      
         means = results_cents.groupby(['method'])["OA"].mean()
         for method, mean_oa in means.iteritems():
-            params[method].append(mean_oa)
+            consts[method].append(mean_oa)
 
-    for key in params.keys():
-        best_treshold_idx = np.argmax(params[key])
+    for key in consts.keys():
+        best_treshold_idx = np.argmax(consts[key])
         best_treshold = thresholds[best_treshold_idx]
-        print(key, best_treshold, f'oa = {np.max(params[key])}')
+        print(key, best_treshold, f'oa = {np.max(consts[key])}')
 
 
 
 
-def main():
-    parser, conf = get_parser_and_config()
-    args = parser.parse_args()
-    conf = conf[args.ds_name]
-
+def plot(dataset, trackers):
     # Load labels
-    with open(conf['processed_label_binary'], 'rb') as f:
+    with open(dataset.proc_label_bin_path, 'rb') as f:
         labels_df = pickle.load(f)
-        
+
     print('Labels ready ...')
 
     # Load results
-    detectors = list(Method)
-
     dfs = []
-
-    for detector in detectors:
-        path = os.path.join(conf['results_dir'], f'{args.ds_name}_{detector.value}.pkl')
-        with open(path, 'rb') as f:
+    for tracker in trackers:
+        with open(dataset.get_result_path(tracker.value), 'rb') as f:
             df = pickle.load(f)
 
-        df['method'] = detector.value
+        df['method'] = tracker.value
         dfs.append(labels_df.join(df.set_index('file'), on='file'))
     
     results_df = pd.concat(dfs)
     results_df = results_df.dropna()
     print('Results ready ...')
 
-    # grid_search(results_df, conf)
-
-    # pitch_contour(results_df)
-
-
-    # Convert to cents
+    # Convert to cents  
     results_df = results_df.apply(add_voicing_and_cents, axis=1)
     print("Converted to cents ...")
-
 
     # Flat version
     flat_df = pd.concat([results_df[['method', col]].explode(col) 
                          for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
-
     flat_df = flat_df.loc[:,~flat_df.columns.duplicated()]
 
     
     # Cumulative density function
-    cumulative(flat_df, args.ds_name)
-
+    cumulative(flat_df, dataset)
 
     # Metrics
-    if args.ds_name == "MIR-1k":
+    if dataset.name == "MIR-1k":
         # metrics = ['RPA', 'RWC', 'VRR', 'VRF', 'OA']
         metrics = ['RPA', 'RWC']
     else:
         metrics = ['RPA', 'RWC']
 
-    results_df = calc_metrics(results_df, args.ds_name)
-    metrics_summary(results_df, metrics, f'{conf["results_dir"]}/{args.ds_name}_summary.csv')
+    results_df = calc_metrics(results_df, dataset.name)
+    metrics_summary(results_df, metrics, dataset.summary_path)
     print('\n')
-    calc_latency(results_df, f'{conf["results_dir"]}/{args.ds_name}_latency.csv')
-
-
-
-    # print('\VRF')
-    # x = results_df.sort_values(by=['VRF'], ascending=False)
-    # # results_df.hist(column=['VRF'], bins=24)
-    # # plt.show()
-    # print(x.head(10))
-    
+    calc_latency(results_df, dataset.latency_path)
 
     # Box plots
     results_melt = pd.melt(results_df, id_vars=['file', 'method'],
         value_vars=metrics, var_name='metric')
+    box_plot(results_melt, dataset)
 
-    box_plot(results_melt, args.ds_name)
-    
-    # Insturments
-    if args.ds_name == "MDB-stem-synth":
-        instruments = get_instruments(conf['metadata_dir'])
+     # Insturments
+    if dataset.name == "MDB-stem-synth":
+        instruments = get_instruments(dataset.metadata_path)
         results_df['instrument'] = results_df['file'].map(instruments)
         results_df['avg_pitch']  = results_df['label_pitch'].apply(lambda pitch: np.sum(pitch) / np.count_nonzero(pitch))
-        instruments_comparsion(results_df, args.ds_name)
-
-
-
-
-
-if __name__ == "__main__":
-    main()
- 
-
-
-
-
-
-        
+        instruments_comparsion(results_df, dataset)
