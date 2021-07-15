@@ -2,7 +2,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow_hub as hub
 import tensorflow as tf
-import lib.crepe_mod.crepe as crepe
+import crepe_mod.crepe as crepe
 import aubio
 import utils
 import numpy as np
@@ -60,14 +60,16 @@ class Crepe(AbstractTracker):
 class Yin(AbstractTracker):
     def __init__(self, threshold=0.8):
         self.method = Tracker.YIN
-        self.yin = aubio.pitch("yinfft", 1024, 512, consts.SR)
-        self.yin.set_tolerance(threshold)
+        self.threshold = threshold
         super().__init__()
 
 
     def predict(self, audio):
+        yin = aubio.pitch("yinfft", 1024, 512, consts.SR)
+        yin.set_tolerance(self.threshold)
+
         t0 = time.perf_counter()
-        results = [self._nth_frame_pitch(audio, i) for i in range(0, len(audio) // self.hop)]
+        results = [self._nth_frame_pitch(yin, audio, i) for i in range(0, len(audio) // self.hop)]
         pitch_pred, confidence_pred = [np.array(t) for t in zip(*results)]
         cmin, cmax = confidence_pred.min(), confidence_pred.max()
         confidence_pred = 1 - (confidence_pred - cmin) / (cmax - cmin + 0.0001)
@@ -75,11 +77,11 @@ class Yin(AbstractTracker):
         return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
 
-    def _nth_frame_pitch(self, audio, n):
+    def _nth_frame_pitch(self, yin, audio, n):
         start = n * self.hop
         end = start + 512
         sample = audio[start:end]
-        return self.yin(sample)[0], self.yin.get_confidence()
+        return yin(sample)[0], yin.get_confidence()
 
 
 class InverseTracker(AbstractTracker):

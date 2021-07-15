@@ -17,7 +17,7 @@ class Dataset:
         self.proc_wav_bg_path = Path(f'{self.proc_wav_path}_background')
         self.proc_label_path = Path(f'{consts.PROCESSED_PATH}/{name}/{consts.LABEL_DIR}')
         self.proc_label_bin_path = Path(f'{self.proc_label_path}/{consts.LABELS_BIN_FILE}')
-        self.metadata_path = Path(f'{consts.RAW_PATH}/{name}/metadata')
+        self.metadata_path = Path(f'{consts.CHECKPOINTS_PATH}/{name}/metadata')
         
         # out
         self.plots_path = Path(f'{consts.PLOTS_PATH}/{name}')

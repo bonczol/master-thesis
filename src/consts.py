@@ -1,13 +1,13 @@
 import seaborn as sns
 from method import Tracker
-
+from pathlib import Path
 '''
 Project structure
 '''
-DATA_DIR = "data"
-LIB_DIR = "lib"
-OUT_DIR = "out"
-RESOURCES_DIR = "resources"
+
+WD = Path.cwd().parent
+DATA_DIR = WD /"data"
+OUT_DIR = WD /"out"
 
 WAV_DIR = "Wavfile"
 LABEL_DIR = "PitchLabel"
@@ -20,7 +20,7 @@ RESULTS_PATH = f"{OUT_DIR}/results"
 PLOTS_PATH = f"{OUT_DIR}/plots"
 SPECTROGRAMS_PATH = f"{OUT_DIR}/spectrograms"
 
-CHECKPOINTS_PATH = f"{RESOURCES_DIR}/checkpoints"
+CHECKPOINTS_PATH = f"{DATA_DIR}/checkpoints"
 
 '''
 Plot params

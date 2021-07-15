@@ -1,6 +1,6 @@
-[submodule "lib/crepe_mod"]
-	path = lib/crepe_mod
+[submodule "src/crepe_mod"]
+	path = src/crepe_mod
 	url = https://github.com/bonczol/crepe.git
-[submodule "lib/hf0_mod"]
-	path = lib/hf0_mod
+[submodule "src/hf0_mod"]
+	path = src/hf0_mod
 	url = https://github.com/bonczol/hf0.git
