@@ -1,4 +1,5 @@
 import os
+from re import A
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow_hub as hub
 import tensorflow as tf
@@ -11,6 +12,9 @@ import ddsp
 import ddsp.training
 import time
 import consts
+import pysptk
+import matlab.engine
+import librosa
 from method import Tracker
 from pathlib import Path
 
@@ -130,3 +134,47 @@ class InverseTracker(AbstractTracker):
         confidence_pred = np.ones(pitch_pred.shape)
         time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
         return time_, pitch_pred, confidence_pred, evaluation_time
+
+
+class Swipe(AbstractTracker):
+    def __init__(self):
+        self.method = Tracker.SWIPE
+        super().__init__()
+
+    def predict(self, audio):
+        t0 = time.perf_counter()
+        audio = audio.astype(dtype=np.float64)
+        pitch_pred = pysptk.sptk.swipe(audio, consts.SR, self.hop, min=32, max=2000, threshold=0)
+        confidence_pred = np.ones(pitch_pred.shape)
+        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
+
+
+class Hf0(AbstractTracker):
+    def __init__(self):
+        self.method = Tracker.HF0
+        self.eng = matlab.engine.start_matlab()
+        self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
+        self.eng.mirverbose(0)
+        self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
+        super().__init__()
+
+    def predict(self, audio):
+        t0 = time.perf_counter()
+        audio = matlab.double(audio.tolist())
+        pitch_pred, time_, _ = self.eng.PitchExtraction(audio, self.tracker, nargout=3)
+        pitch_pred, time_ = np.array(pitch_pred).flatten(), np.array(time_).flatten()
+        confidence_pred = (pitch_pred > 0).astype(np.int)
+        return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
+
+
+class PYin(AbstractTracker):
+    def __init__(self):
+        self.method = Tracker.PYIN
+        super().__init__()
+
+    def predict(self, audio):
+        t0 = time.perf_counter()
+        pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR)
+        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        return time_, pitch_pred, voiced_flags, time.perf_counter() - t0

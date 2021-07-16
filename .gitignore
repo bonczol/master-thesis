@@ -131,7 +131,4 @@ dmypy.json
 
 data/
 out/
-resources/
 .vscode/
-
-test.py

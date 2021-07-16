@@ -4,7 +4,7 @@ import consts
 import evaluate
 import plots
 from dataset import MirDataset, MdbDataset
-from trackers import Spice, Crepe, Yin, InverseTracker
+from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
 
 
 if __name__ == "__main__":
@@ -43,7 +43,10 @@ if __name__ == "__main__":
             Tracker.SPICE: Spice,
             Tracker.CREPE_TINY: Crepe,
             Tracker.DDSP_INV: InverseTracker,
-            Tracker.YIN: Yin
+            Tracker.YIN: Yin,
+            Tracker.SWIPE: Swipe,
+            Tracker.HF0: Hf0,
+            Tracker.PYIN: PYin
          }
         trackers = [Tracker(t) for t in args.trackers]
 

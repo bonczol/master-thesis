@@ -6,3 +6,6 @@ class Tracker(Enum):
     CREPE_TINY = 'CREPETINY'
     DDSP_INV = 'DDSPINV'
     YIN = 'YIN'
+    SWIPE = 'SWIPE'
+    HF0 = 'HF0'
+    PYIN = 'PYIN'
