@@ -34,7 +34,7 @@ def cumulative(results, dataset):
     
     line_plot = sns.lineplot(data=r, x='pitch_diff', y="RPA", hue="method",
         palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
-    line_plot.get_figure().savefig(dataset.get_plot_path('cumulative'))
+    line_plot.get_figure().savefig(dataset.get_plot('cumulative'))
     plt.clf()
 
 
@@ -104,7 +104,7 @@ def box_plot(results, dataset):
     box_plot.legend(loc='lower left')
     fig = box_plot.get_figure()
     fig.set_size_inches(10, 6)
-    fig.savefig(dataset.get_plot_path('box_plot'))
+    fig.savefig(dataset.get_plot('box_plot'))
     plt.clf()
 
 
@@ -119,7 +119,7 @@ def instruments_plot(results, dataset):
         fig.colorbar(sc)
         plt.xticks(rotation=90)
         fig.tight_layout()
-        fig.savefig(dataset.get_plot_path('instruments'))
+        fig.savefig(dataset.get_plot('instruments'))
     plt.clf()
 
 
@@ -141,7 +141,7 @@ def instruments_comparsion(results, dataset):
     ax2.get_legend().remove()
     fig.set_size_inches(10, 6)
     fig.tight_layout()
-    fig.savefig(dataset.get_plot_path('instrumentscomp'))
+    fig.savefig(dataset.get_plot('instrumentscomp'))
     plt.clf()
 
 
@@ -183,7 +183,7 @@ def grid_search(results_raw, conf):
 
 def plot(dataset, trackers):
     # Load labels
-    with open(dataset.proc_label_bin_path, 'rb') as f:
+    with open(dataset.label_bin_path, 'rb') as f:
         labels_df = pickle.load(f)
 
     print('Labels ready ...')
@@ -191,7 +191,7 @@ def plot(dataset, trackers):
     # Load results
     dfs = []
     for tracker in trackers:
-        with open(dataset.get_result_path(tracker.value), 'rb') as f:
+        with open(dataset.get_result(tracker.value), 'rb') as f:
             df = pickle.load(f)
 
         df['method'] = tracker.value

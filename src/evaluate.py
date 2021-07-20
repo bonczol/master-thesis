@@ -6,6 +6,7 @@ import consts
 from scipy.io import wavfile
 from tqdm import tqdm
 from rich.progress import track
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 def get_waveform(path):
@@ -33,8 +34,8 @@ def evaluate_dir(tracker, wav_paths):
 
 
 def run_evaluation(tracker, dataset, noise=None, snr=None):
-    results = evaluate_dir(tracker, dataset.get_proc_wav_paths(noise, snr))
-    save_path = dataset.get_result_path(tracker.method.value, noise, snr)
+    results = evaluate_dir(tracker, dataset.get_wavs(noise, snr))
+    save_path = dataset.get_result(tracker.method.value, noise, snr)
 
     with open(save_path, 'wb') as f:
         df = pd.DataFrame(results, columns=["file", "time", "pitch", "confidence", "evaluation_time"])

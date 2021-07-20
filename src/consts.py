@@ -26,6 +26,9 @@ SPECTROGRAMS_PATH = f"{OUT_DIR}/spectrograms"
 
 CHECKPOINTS_PATH = f"{DATA_DIR}/checkpoints"
 
+PROC_WAV_EXT = 'wav'
+PROC_LABEL_EXT = 'csv'
+
 '''
 Plot params
 '''
