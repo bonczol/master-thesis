@@ -2,8 +2,10 @@ import argparse
 from method import Tracker
 import evaluate
 import plots
+import itertools
 from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
 from converters import MirConverter, MdbConverter, UrmpConverter, PtdbConverter
+from degrader import Modifier
 
 
 if __name__ == "__main__":
@@ -30,10 +32,14 @@ if __name__ == "__main__":
     plot_parser = subparsers.add_parser('plot', parents=[dataset_parser, tracker_parser])
     plot_parser.add_argument('-A', '--all', action="store_true")
 
+    # Degrade
+    degrade_parser = subparsers.add_parser('degrade', parents=[dataset_parser])
+    degrade_parser.add_argument('-t', '--type', nargs='?')
+
     args = parser.parse_args()
 
 
-    if args.which in ['evaluate', 'plot']:
+    if args.which in ['evaluate', 'plot', 'degrade']:
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
 
 
@@ -79,7 +85,21 @@ if __name__ == "__main__":
         for dataset in datasets_outputs:
             plots.plot(dataset, trackers)
 
-            
+
+    if args.which == 'degrade':
+        snrs = [20, 10, 0]
+        colors = ['white', 'pink', 'violet', 'brown']
+        modifiers = [Modifier(d) for d in datasets_outputs]
+
+        if args.type == 'noise':
+            for snr, color, modifier in itertools.product(snrs, colors, modifiers):
+                modifier.add_noise(color, snr)
+        elif args.type == 'acco':
+            for snr, modifier in itertools.product(snrs, modifiers):
+                modifier.add_accompaniment(snr)
+        else:
+            raise NotImplemented
+
 
 
 

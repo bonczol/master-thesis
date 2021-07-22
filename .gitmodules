@@ -4,3 +4,6 @@
 [submodule "src/hf0_mod"]
 	path = src/hf0_mod
 	url = https://github.com/bonczol/hf0.git
+[submodule "src/audio-degradation-toolbox"]
+	path = src/audio-degradation-toolbox
+	url = https://github.com/sevagh/audio-degradation-toolbox.git

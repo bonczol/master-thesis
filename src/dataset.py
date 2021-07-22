@@ -81,7 +81,7 @@ class DatasetOutput:
         return sorted([f.stem for f in self._wav_path.glob('*.wav')])
 
     def get_wavs(self, noise=None, snr=None):
-        p = Path("_".join([s for s in [str(self._wav_path), noise, snr] if s]))
+        p = Path("_".join([str(s) for s in [self._wav_path, noise, snr] if s]))
         return [p / f'{f}.{consts.PROC_WAV_EXT}' for f in self.files]
 
     def get_labels(self):
@@ -92,7 +92,7 @@ class DatasetOutput:
         return self._plots_path / name
 
     def get_result(self, tracker_name, noise_type=None, snr=None):
-        name = "_".join([s for s in [tracker_name, noise_type, snr] if s]) + '.pkl'
+        name = "_".join([str(s) for s in [tracker_name, noise_type, snr] if s]) + '.pkl'
         return self._results_path / name
 
     def get_spectrogram(self, track_name):
