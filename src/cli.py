@@ -2,8 +2,7 @@ import argparse
 from method import Tracker
 import evaluate
 import plots
-from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
-from dataset import DatasetInput, DatasetOutput
+from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
 from converters import MirConverter, MdbConverter, UrmpConverter, PtdbConverter
 
 
@@ -39,6 +38,7 @@ if __name__ == "__main__":
 
 
     if args.which in ['evaluate', 'plot']:
+        from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
         TRACKER = {
             Tracker.SPICE: Spice,
             Tracker.CREPE_TINY: Crepe,
@@ -52,20 +52,16 @@ if __name__ == "__main__":
 
 
     if args.which == 'prepare':
-        DATASET_INPUT_PARAMS = {
-            'MIR-1k': {'name':'MIR-1k', 'label_ext':'pv', 'wav_dir':'Wavfile', 'label_dir':'PitchLabel'},
-            'MDB-stem-synth': {'name':'MDB-stem-synth', 'label_ext':'csv', 'wav_dir':'audio_stems', 'label_dir':'annotation_stems'},
-            'URMP': {'name':'URMP', 'label_ext':'txt', 'wav_prefix':'AuSep', 'label_prefix':'F0s'},
-            'PTDB-TUG': {'name':'PTDB-TUG', 'label_ext':'f0', 'wav_dir':'MIC', 'label_dir':'REF', 'wav_prefix':'mic', 'label_prefix':'ref'},
+        DATASET_INPUT = {
+            'MIR-1k': MirInput, 'MDB-stem-synth': MdbInput, 
+            'URMP': UrmpInput,'PTDB-TUG': PtdbInput
         }
         CONVERTERS = {
-            'MIR-1k': MirConverter,
-            'MDB-stem-synth': MdbConverter,
-            'URMP': UrmpConverter,
-            'PTDB-TUG': PtdbConverter
+            'MIR-1k': MirConverter,'MDB-stem-synth': MdbConverter, 
+            'URMP': UrmpConverter,'PTDB-TUG': PtdbConverter
         }
         
-        datasets_inputs = [DatasetInput(**DATASET_INPUT_PARAMS[d]) for d in args.datasets]
+        datasets_inputs = [DATASET_INPUT[d]() for d in args.datasets]
         datasets_outputs = [DatasetOutput(d.name, d.get_files()) for d in datasets_inputs]
         converters = [CONVERTERS[in_.name](in_, out_) for in_, out_ in zip(datasets_inputs, datasets_outputs)]
         for converter in converters:

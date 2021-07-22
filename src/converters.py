@@ -1,15 +1,14 @@
 import numpy as np
 import shutil
-import array
 import pickle
 import utils
 import pandas as pd
+import yaml
+from pathlib import Path
 from multiprocessing import Pool
 from pydub import AudioSegment
 from utils import semitones2hz
-from pathlib import Path
 import consts
-import mir_eval
 
 
 class Converter:
@@ -28,19 +27,24 @@ class Converter:
         with Pool() as pool:
             pool.starmap(self._convert_func(), self._convert_args())
 
-    def _save_labels_binary(self):
+
+    def _save_labels_binary(self, labels):
+        with open(self.proc.label_bin_path, 'wb') as f:
+            pickle.dump(labels, f)
+
+
+    def _get_labels_data(self):
         with Pool() as pool:
             labels = pool.map(utils.read_label, self.proc.get_labels())
-   
+
         labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
         labels_df['duration'] = labels_df['label_time'].map(lambda x: x[-1])
-        with open(self.proc.label_bin_path, 'wb') as f:
-            pickle.dump(labels_df, f)
-
+        return labels_df
 
     def prepare(self):
         self._convert()
-        self._save_labels_binary()
+        labels = self._get_labels_data()
+        self._save_labels_binary(labels)
 
 
 
@@ -71,6 +75,15 @@ class MirConverter(Converter):
         background.export(out_wav_background_path, format='wav')
         np.savetxt(out_label_path, time_series, delimiter=',', fmt='%1.6f')
 
+    def _get_labels_data(self):
+        labels_df = super()._get_labels_data()
+
+        with Pool() as pool: 
+            vocals = pool.map(np.loadtxt, self.raw.get_vocals())
+        
+        vocals = pd.Series([v.astype(np.bool) for v in vocals], name='vocal')
+        return pd.concat([labels_df, vocals], axis=1)
+
 
 class MdbConverter(Converter):
     def __init__(self, dataset_raw, datset_proc):
@@ -84,6 +97,29 @@ class MdbConverter(Converter):
         audio = audio.set_frame_rate(consts.SR)
         audio.export(out_wav_path, format='wav')
         shutil.copyfile(label_path, out_label_path)
+
+    def _get_instrument(self, path):
+            instruments = dict()
+            with open(path) as f:
+                meta = yaml.full_load(f)
+                for info in meta['stems'].values():
+                    filename = Path(info['filename']).stem + ".RESYN"
+                    instruments[filename] = info['instrument']
+            return instruments
+
+    def _get_labels_data(self):
+        labels_df = super()._get_labels_data()
+
+        with Pool() as pool: 
+            instruments_dicts = pool.map(self._get_instrument, self.raw.get_metadata())
+
+        instruments_dict_merged = {filename: instrument for d in instruments_dicts 
+                                   for filename, instrument in d.items()}
+
+        labels_df['instrument'] = labels_df['file'].map(instruments_dict_merged) 
+        labels_df['avg_pitch']  = labels_df['label_pitch'].apply(lambda p: np.sum(p) / np.count_nonzero(p))
+        return labels_df
+
 
 
 class UrmpConverter(Converter):

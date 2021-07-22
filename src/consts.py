@@ -1,8 +1,6 @@
 import seaborn as sns
 from method import Tracker
 from pathlib import Path
-
-from trackers import PYin, Swipe
 '''
 Project structure
 '''

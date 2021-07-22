@@ -5,8 +5,6 @@ import pickle
 import consts
 from scipy.io import wavfile
 from tqdm import tqdm
-from rich.progress import track
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 def get_waveform(path):

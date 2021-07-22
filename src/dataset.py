@@ -7,8 +7,6 @@ class DatasetInput:
         self.name = name
         self._label_ext = label_ext
         self._dataset_dir = Path(f'{consts.RAW_PATH}/{name}')
-        # self._wav_path = Path(f'{consts.RAW_PATH}/{name}/{wav_dir}')
-        # self._label_path = Path(f'{consts.RAW_PATH}/{name}/{label_dir}')
         self._wav_dir = wav_dir
         self._label_dir = label_dir
         self._wav_prefix = wav_prefix
@@ -27,7 +25,32 @@ class DatasetInput:
                        if not str(p.name).startswith('.') 
                        and str(p.name).startswith(self._label_prefix)])
 
-    
+
+class MirInput(DatasetInput):
+    def __init__(self):
+        super().__init__('MIR-1k', 'pv', wav_dir='Wavfile', label_dir='PitchLabel')
+        self._vocal_path = self._dataset_dir / 'vocal-nonvocalLabel'
+
+    def get_vocals(self):
+        return sorted(self._vocal_path.glob('*.vocal'))
+
+class MdbInput(DatasetInput):
+    def __init__(self):
+        super().__init__('MDB-stem-synth', 'csv', wav_dir='audio_stems', label_dir='annotation_stems')
+        self._instument_metadata_path = self._dataset_dir / 'metadata'
+        
+    def get_metadata(self):
+        return sorted(self._instument_metadata_path.glob('*.yaml'))
+
+
+class UrmpInput(DatasetInput):
+    def __init__(self):
+        super().__init__('URMP','txt', wav_prefix='AuSep', label_prefix='F0s')
+
+
+class PtdbInput(DatasetInput):
+    def __init__(self):
+        super().__init__('PTDB-TUG', 'f0', wav_dir='MIC', label_dir='REF')
 
 
 class DatasetOutput:
