@@ -49,10 +49,10 @@ class Spice(AbstractTracker):
 
 
 class Crepe(AbstractTracker):
-    def __init__(self, version='tiny'):
+    def __init__(self, version='full'):
         self.version = version
         self.model = crepe.build_and_load_model(version)
-        self.method = Tracker.CREPE_TINY
+        self.method = Tracker.CREPE
         super().__init__()
 
     def predict(self, audio):

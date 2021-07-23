@@ -36,7 +36,7 @@ COLORS = {method.value: color for method, color in zip(Tracker, palette)}
 
 LABELS = {
     Tracker.SPICE: 'SPICE',
-    Tracker.CREPE_TINY: 'CREPE tiny',
+    Tracker.CREPE: 'CREPE tiny',
     Tracker.DDSP_INV: 'DDSP-INV',
     Tracker.YIN: 'YIN',
     Tracker.SWIPE: 'SWIPE',
@@ -46,7 +46,7 @@ LABELS = {
 
 THRESHOLDS = {
     Tracker.SPICE: 0.88,
-    Tracker.CREPE_TINY: 0.67,
+    Tracker.CREPE: 0.67,
     Tracker.DDSP_INV: 0.5,
     Tracker.YIN: 0.5,
     Tracker.SWIPE: 0.5,

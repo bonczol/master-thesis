@@ -3,7 +3,7 @@ from enum import Enum
 
 class Tracker(Enum):
     SPICE = 'SPICE'
-    CREPE_TINY = 'CREPETINY'
+    CREPE = 'CREPE'
     DDSP_INV = 'DDSPINV'
     YIN = 'YIN'
     SWIPE = 'SWIPE'

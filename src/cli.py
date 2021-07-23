@@ -47,7 +47,7 @@ if __name__ == "__main__":
         from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
         TRACKER = {
             Tracker.SPICE: Spice,
-            Tracker.CREPE_TINY: Crepe,
+            Tracker.CREPE: Crepe,
             Tracker.DDSP_INV: InverseTracker,
             Tracker.YIN: Yin,
             Tracker.SWIPE: Swipe,
