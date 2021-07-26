@@ -154,7 +154,7 @@ class PtdbConverter(Converter):
     
         label = np.loadtxt(label_path, delimiter=' ')
         pitch = label[:, 0]
-        time = np.arange(pitch.shape[0]) * 0.01
+        time = np.arange(pitch.shape[0]) * 0.01 + 0.016
         timeseries = np.transpose(np.vstack((time, pitch)))
 
         audio.export(out_wav_path, format='wav')
