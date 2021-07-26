@@ -3,6 +3,7 @@ from method import Tracker
 import evaluate
 import plots
 import itertools
+import ploting
 from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
 from converters import MirConverter, MdbConverter, UrmpConverter, PtdbConverter
 from degrader import Modifier
@@ -26,11 +27,12 @@ if __name__ == "__main__":
     evaluate_parser = subparsers.add_parser('evaluate', parents=[dataset_parser, tracker_parser])
     evaluate_parser.add_argument('--noise', type=str)
     evaluate_parser.add_argument('--snr', type=int)
-    evaluate_parser.add_argument('-A', '--all', action="store_true")
 
     # Plot
     plot_parser = subparsers.add_parser('plot', parents=[dataset_parser, tracker_parser])
-    plot_parser.add_argument('-A', '--all', action="store_true")
+
+     # Subplot
+    subplot_parser = subparsers.add_parser('subplot', parents=[dataset_parser, tracker_parser])
 
     # Degrade
     degrade_parser = subparsers.add_parser('degrade', parents=[dataset_parser])
@@ -39,11 +41,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    if args.which in ['evaluate', 'plot', 'degrade']:
+    if args.which in ['evaluate', 'plot', 'subplot', 'degrade']:
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
 
 
-    if args.which in ['evaluate', 'plot']:
+    if args.which in ['evaluate', 'plot', 'subplot']:
         from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
         TRACKER = {
             Tracker.SPICE: Spice,
@@ -84,6 +86,10 @@ if __name__ == "__main__":
     if args.which == 'plot':
         for dataset in datasets_outputs:
             plots.plot(dataset, trackers)
+
+
+    if args.which == 'subplot':
+        ploting.subplot(datasets_outputs, trackers)
 
 
     if args.which == 'degrade':

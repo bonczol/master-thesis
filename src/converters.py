@@ -38,6 +38,7 @@ class Converter:
             labels = pool.map(utils.read_label, self.proc.get_labels())
 
         labels_df = pd.DataFrame(labels, columns=['file', 'label_time', 'label_pitch'])
+        
         labels_df['duration'] = labels_df['label_time'].map(lambda x: x[-1])
         return labels_df
 

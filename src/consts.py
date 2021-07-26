@@ -15,14 +15,14 @@ WAV_DIR = "Wavfile"
 LABEL_DIR = "PitchLabel"
 LABELS_BIN_FILE = "labels.pkl"
 
-RAW_PATH = f"{DATA_DIR}/raw"
-PROCESSED_PATH = f"{DATA_DIR}/processed"
+RAW_PATH = DATA_DIR / "raw"
+PROCESSED_PATH = DATA_DIR / "processed"
 
-RESULTS_PATH = f"{OUT_DIR}/results"
-PLOTS_PATH = f"{OUT_DIR}/plots"
-SPECTROGRAMS_PATH = f"{OUT_DIR}/spectrograms"
+RESULTS_PATH = OUT_DIR / "results"
+PLOTS_PATH = OUT_DIR / "plots"
+SPECTROGRAMS_PATH =  OUT_DIR / "spectrograms"
 
-CHECKPOINTS_PATH = f"{DATA_DIR}/checkpoints"
+CHECKPOINTS_PATH =  DATA_DIR / "checkpoints"
 
 PROC_WAV_EXT = 'wav'
 PROC_LABEL_EXT = 'csv'

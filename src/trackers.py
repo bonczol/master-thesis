@@ -2,7 +2,6 @@ import os
 from re import A
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow_hub as hub
-import tensorflow as tf
 import crepe_mod.crepe as crepe
 import aubio
 import utils
@@ -17,6 +16,7 @@ import matlab.engine
 import librosa
 from method import Tracker
 from pathlib import Path
+import tensorflow as tf
 
 
 class AbstractTracker: 
