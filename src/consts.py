@@ -23,6 +23,7 @@ PLOTS_PATH = OUT_DIR / "plots"
 SPECTROGRAMS_PATH =  OUT_DIR / "spectrograms"
 
 CHECKPOINTS_PATH =  DATA_DIR / "checkpoints"
+DEGRADE_TMP_PATH = DATA_DIR / "degrade_tmp"
 
 PROC_WAV_EXT = 'wav'
 PROC_LABEL_EXT = 'csv'

@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 import pickle
 import consts
+import time
+from multiprocessing import Pool
 from scipy.io import wavfile
 from tqdm import tqdm
+from itertools import repeat
 
 
 def get_waveform(path):
@@ -27,11 +30,15 @@ def evaluate(tracker, wav_path):
 
 
 def evaluate_dir(tracker, wav_paths):
-    print(tracker.method.value)
-    return [evaluate(tracker, path) for path in tqdm(wav_paths)]
+    if tracker.is_multicore:
+        with Pool(processes=2) as pool:
+            return pool.starmap(evaluate, zip(repeat(tracker), wav_paths))
+    else:
+        return [evaluate(tracker, wav_path) for wav_path in tqdm(wav_paths)]
 
 
 def run_evaluation(tracker, dataset, noise=None, snr=None):
+    print(f'Tracker={tracker.method.value} Dataset={dataset.name} Noise={noise} SNR={snr}')
     results = evaluate_dir(tracker, dataset.get_wavs(noise, snr))
     save_path = dataset.get_result(tracker.method.value, noise, snr)
 

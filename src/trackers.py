@@ -1,6 +1,3 @@
-import os
-from re import A
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow_hub as hub
 import crepe_mod.crepe as crepe
 import aubio
@@ -20,18 +17,20 @@ import tensorflow as tf
 
 
 class AbstractTracker: 
-    def __init__(self):
+    def __init__(self, is_multicore):
         self.step_size = 32
         self.hop = 512
+        self.is_multicore = is_multicore
 
     def predict(self, audio):
         pass
+
 
 class Spice(AbstractTracker):
     def __init__(self):
         self.model = hub.load("https://tfhub.dev/google/spice/2")
         self.method = Tracker.SPICE
-        super().__init__()
+        super().__init__(is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -53,7 +52,7 @@ class Crepe(AbstractTracker):
         self.version = version
         self.model = crepe.build_and_load_model(version)
         self.method = Tracker.CREPE
-        super().__init__()
+        super().__init__(is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -65,7 +64,7 @@ class Yin(AbstractTracker):
     def __init__(self, threshold=0.8):
         self.method = Tracker.YIN
         self.threshold = threshold
-        super().__init__()
+        super().__init__(is_multicore=False)
 
 
     def predict(self, audio):
@@ -99,7 +98,7 @@ class InverseTracker(AbstractTracker):
         with gin.unlock_config():
             gin.parse_config_file(self.gin_file, skip_unknown=True)
 
-        super().__init__()
+        super().__init__(is_multicore=False)
 
     def _get_checpoint_path(self):
         ckpt_files = [f for f in tf.io.gfile.listdir(self.model_dir) if 'ckpt' in f]
@@ -139,7 +138,7 @@ class InverseTracker(AbstractTracker):
 class Swipe(AbstractTracker):
     def __init__(self):
         self.method = Tracker.SWIPE
-        super().__init__()
+        super().__init__(is_multicore=True)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -157,7 +156,7 @@ class Hf0(AbstractTracker):
         self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
         self.eng.mirverbose(0)
         self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
-        super().__init__()
+        super().__init__(is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -171,7 +170,7 @@ class Hf0(AbstractTracker):
 class PYin(AbstractTracker):
     def __init__(self):
         self.method = Tracker.PYIN
-        super().__init__()
+        super().__init__(is_multicore=True)
 
     def predict(self, audio):
         t0 = time.perf_counter()

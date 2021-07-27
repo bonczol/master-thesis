@@ -1,9 +1,14 @@
 import argparse
-from method import Tracker
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+import tensorflow as tf
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+import consts
 import evaluate
 import plots
 import itertools
 import ploting
+from method import Tracker
 from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
 from converters import MirConverter, MdbConverter, UrmpConverter, PtdbConverter
 from degrader import Modifier
@@ -46,7 +51,7 @@ if __name__ == "__main__":
 
 
     if args.which in ['evaluate', 'plot', 'subplot']:
-        from trackers import PYin, Spice, Crepe, Yin, InverseTracker, Swipe, Hf0, PYin
+        from trackers import *
         TRACKER = {
             Tracker.SPICE: Spice,
             Tracker.CREPE: Crepe,
@@ -56,6 +61,7 @@ if __name__ == "__main__":
             Tracker.HF0: Hf0,
             Tracker.PYIN: PYin
          }
+
         trackers = [Tracker(t) for t in args.trackers]
 
 
@@ -85,7 +91,7 @@ if __name__ == "__main__":
 
     if args.which == 'plot':
         for dataset in datasets_outputs:
-            plots.plot(dataset, trackers)
+            plots.plot(dataset,  trackers)
 
 
     if args.which == 'subplot':
@@ -94,7 +100,7 @@ if __name__ == "__main__":
 
     if args.which == 'degrade':
         snrs = [20, 10, 0]
-        colors = ['white', 'pink', 'violet', 'brown']
+        colors = ['white', 'pink', 'brown']
         modifiers = [Modifier(d) for d in datasets_outputs]
 
         if args.type == 'noise':
@@ -105,6 +111,8 @@ if __name__ == "__main__":
                 modifier.add_accompaniment(snr)
         else:
             raise NotImplemented
+
+        Modifier.clear_tmp_files()
 
 
 

@@ -81,7 +81,7 @@ class DatasetOutput:
         return sorted([f.stem for f in self._wav_path.glob('*.wav')])
 
     def get_wavs(self, noise=None, snr=None):
-        p = Path("_".join([str(s) for s in [self._wav_path, noise, snr] if s]))
+        p = Path("_".join([str(s) for s in [self._wav_path, noise, snr] if s is not None]))
         return [p / f'{f}.{consts.PROC_WAV_EXT}' for f in self.files]
 
     def get_labels(self):
