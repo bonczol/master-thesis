@@ -32,13 +32,31 @@ class Spice(AbstractTracker):
         self.method = Tracker.SPICE
         super().__init__(is_multicore=False)
 
+    def _predict_chunk(self, chunk):
+        model_output = self.model.signatures["serving_default"](tf.constant(chunk, tf.float32))
+        pitch = self._output2hz(model_output["pitch"])
+        confidence = 1 - model_output["uncertainty"]
+        return pitch.numpy().tolist(), confidence.numpy().tolist()
+
     def predict(self, audio):
         t0 = time.perf_counter()
-        model_output = self.model.signatures["serving_default"](tf.constant(audio, tf.float32))
-        pitch_pred = self._output2hz(model_output["pitch"])
-        confidence_pred = 1 - model_output["uncertainty"]
-        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
-        return time_, pitch_pred.numpy(), confidence_pred.numpy(), time.perf_counter() - t0
+
+        frame_length = 480000
+
+        frames = [audio[i*frame_length:(i+1)*frame_length] 
+                  for i in range(int(np.ceil(len(audio)/frame_length)))]
+
+        merged_pitch, merged_confidence = self._predict_chunk(frames[0])
+
+        for frame in frames[1:]:
+            pitch, confidence = self._predict_chunk(frame)
+            merged_pitch.extend(pitch[1:])
+            merged_confidence.extend(confidence[1:])
+
+        merged_pitch, merged_confidence  = np.array(merged_pitch), np.array(merged_confidence)
+        time_ = np.arange(merged_pitch.shape[0]) * self.step_size / 1000.0
+
+        return time_, merged_pitch, merged_confidence, time.perf_counter() - t0
 
     def _output2hz(self, pitch_output):
         PT_OFFSET = 25.58
