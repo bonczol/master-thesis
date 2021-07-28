@@ -31,7 +31,7 @@ def evaluate(tracker, wav_path):
 
 def evaluate_dir(tracker, wav_paths):
     if tracker.is_multicore:
-        with Pool(processes=2) as pool:
+        with Pool() as pool:
             return pool.starmap(evaluate, zip(repeat(tracker), wav_paths))
     else:
         return [evaluate(tracker, wav_path) for wav_path in tqdm(wav_paths)]
@@ -39,7 +39,7 @@ def evaluate_dir(tracker, wav_paths):
 
 def run_evaluation(tracker, dataset, noise=None, snr=None):
     print(f'Tracker={tracker.method.value} Dataset={dataset.name} Noise={noise} SNR={snr}')
-    results = evaluate_dir(tracker, dataset.get_wavs(noise, snr))
+    results = evaluate_dir(tracker, dataset.get_wavs(noise, snr)[67:])
     save_path = dataset.get_result(tracker.method.value, noise, snr)
 
     with open(save_path, 'wb') as f:

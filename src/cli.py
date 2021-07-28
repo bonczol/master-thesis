@@ -1,12 +1,13 @@
 import argparse
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import consts
 import evaluate
 import plots
-import itertools
+from itertools import product
 import ploting
 from method import Tracker
 from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
@@ -30,8 +31,7 @@ if __name__ == "__main__":
 
     # Evaluate
     evaluate_parser = subparsers.add_parser('evaluate', parents=[dataset_parser, tracker_parser])
-    evaluate_parser.add_argument('--noise', type=str)
-    evaluate_parser.add_argument('--snr', type=int)
+    evaluate_parser.add_argument('--noise', action='store_true')
 
     # Plot
     plot_parser = subparsers.add_parser('plot', parents=[dataset_parser, tracker_parser])
@@ -48,6 +48,11 @@ if __name__ == "__main__":
 
     if args.which in ['evaluate', 'plot', 'subplot', 'degrade']:
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
+
+
+    if args.which in ['evaluate', 'degrade']:
+        snrs = [20, 10, 0]
+        colors = ['white', 'pink', 'brown']
 
 
     if args.which in ['evaluate', 'plot', 'subplot']:
@@ -84,9 +89,13 @@ if __name__ == "__main__":
 
     if args.which == 'evaluate':
         concrete_trackers = [TRACKER[t]() for t in trackers]
-        for dataset in datasets_outputs:
-            for tracker in concrete_trackers:
-                evaluate.run_evaluation(tracker, dataset, args.noise, args.snr)
+
+        for dataset, tracker in product(datasets_outputs, concrete_trackers):
+                evaluate.run_evaluation(tracker, dataset, None, None)
+
+        if args.noise:
+            for dataset, tracker, color, snr in product(datasets_outputs, concrete_trackers, colors, snrs):
+                evaluate.run_evaluation(tracker, dataset, color, snr)
 
 
     if args.which == 'plot':
@@ -99,15 +108,13 @@ if __name__ == "__main__":
 
 
     if args.which == 'degrade':
-        snrs = [20, 10, 0]
-        colors = ['white', 'pink', 'brown']
         modifiers = [Modifier(d) for d in datasets_outputs]
 
         if args.type == 'noise':
-            for snr, color, modifier in itertools.product(snrs, colors, modifiers):
+            for snr, color, modifier in product(snrs, colors, modifiers):
                 modifier.add_noise(color, snr)
         elif args.type == 'acco':
-            for snr, modifier in itertools.product(snrs, modifiers):
+            for snr, modifier in product(snrs, modifiers):
                 modifier.add_accompaniment(snr)
         else:
             raise NotImplemented

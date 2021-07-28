@@ -88,11 +88,11 @@ class DatasetOutput:
         return [self._label_path / f'{f}.{consts.PROC_LABEL_EXT}' for f in self.files]
 
     def get_plot(self, plot_name, tracker_name=None):
-        name = "_".join([s for s in [plot_name, self.name, tracker_name] if s]) + '.pdf'
+        name = "_".join([str(s) for s in [plot_name, self.name, tracker_name] if s is not None]) + '.pdf'
         return self._plots_path / name
 
     def get_result(self, tracker_name, noise_type=None, snr=None):
-        name = "_".join([str(s) for s in [tracker_name, noise_type, snr] if s]) + '.pkl'
+        name = "_".join([str(s) for s in [tracker_name, noise_type, snr] if s is not None]) + '.pkl'
         return self._results_path / name
 
     def get_spectrogram(self, track_name):

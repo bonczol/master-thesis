@@ -41,7 +41,7 @@ class Spice(AbstractTracker):
     def predict(self, audio):
         t0 = time.perf_counter()
 
-        frame_length = 480000
+        frame_length =  512000
 
         frames = [audio[i*frame_length:(i+1)*frame_length] 
                   for i in range(int(np.ceil(len(audio)/frame_length)))]
@@ -123,12 +123,8 @@ class InverseTracker(AbstractTracker):
         ckpt_name = ckpt_files[0].split('.')[0]
         return self.model_dir / ckpt_name
 
-    def predict(self, audio):
-        audio = audio.reshape(1, -1)
-        time_steps = int(audio.shape[1] / self.hop)
-        n_samples = time_steps * self.hop
-        audio = audio[:, :n_samples]
 
+    def _setup_model(self, n_samples):
         gin_params = [
             'TranscribingAutoencoder.n_samples = {}'.format(n_samples),
             'oscillator_bank.use_angular_cumsum = True',
@@ -139,18 +135,43 @@ class InverseTracker(AbstractTracker):
 
         model = ddsp.training.models.TranscribingAutoencoder()
         model.restore(self.ckpt)
+        return model
 
-        t0 = time.perf_counter()
+    def _predict_chunk(self, model, audio):
         controls = model.get_controls({'audio': audio}, training=False)
-        # print(model.summary())
+        return controls['f0_hz'].numpy().ravel()
 
-        evaluation_time =  time.perf_counter() - t0
 
-        pitch_pred = controls['f0_hz']
-        pitch_pred = pitch_pred.numpy().ravel()
-        confidence_pred = np.ones(pitch_pred.shape)
-        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
-        return time_, pitch_pred, confidence_pred, evaluation_time
+    def predict(self, audio):
+        # Round to 512
+        time_steps = int(audio.shape[0] / self.hop)
+        n_samples = time_steps * self.hop
+        audio = audio[:n_samples]
+
+        frame_length =  512000
+        frames = [audio[i*frame_length:(i+1)*frame_length] 
+                  for i in range(int(np.ceil(len(audio)/frame_length)))]
+
+        if len(frames[0]) == frame_length:
+            model = self._setup_model(frame_length)
+
+        merged_pitch = []
+        for frame in frames:
+            if len(frame) < frame_length:
+                model = self._setup_model(len(frame))
+
+            frame = frame.reshape(1, -1)
+            merged_pitch.append(self._predict_chunk(model, frame))
+
+
+        merged_pitch = np.concatenate(merged_pitch)
+        confidence_pred = np.ones(merged_pitch.shape)
+        time_ = np.arange(merged_pitch.shape[0]) * self.step_size / 1000.0
+
+        return time_, merged_pitch, confidence_pred, 0
+
+
+
 
 
 class Swipe(AbstractTracker):
@@ -192,6 +213,6 @@ class PYin(AbstractTracker):
 
     def predict(self, audio):
         t0 = time.perf_counter()
-        pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR)
-        time_ = np.arange(pitch_pred.shape[0]) * self.step_size / 1000.0
+        pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR, frame_length=1024, hop_length=160)
+        time_ = np.arange(pitch_pred.shape[0]) * 10 / 1000.0
         return time_, pitch_pred, voiced_flags, time.perf_counter() - t0
