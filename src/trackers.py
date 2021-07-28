@@ -14,12 +14,14 @@ import librosa
 from method import Tracker
 from pathlib import Path
 import tensorflow as tf
+import subprocess
 
 
 class AbstractTracker: 
-    def __init__(self, is_multicore):
+    def __init__(self, method, is_multicore):
         self.step_size = 32
         self.hop = 512
+        self.method = method
         self.is_multicore = is_multicore
 
     def predict(self, audio):
@@ -29,8 +31,7 @@ class AbstractTracker:
 class Spice(AbstractTracker):
     def __init__(self):
         self.model = hub.load("https://tfhub.dev/google/spice/2")
-        self.method = Tracker.SPICE
-        super().__init__(is_multicore=False)
+        super().__init__(Tracker.SPICE, is_multicore=False)
 
     def _predict_chunk(self, chunk):
         model_output = self.model.signatures["serving_default"](tf.constant(chunk, tf.float32))
@@ -69,8 +70,7 @@ class Crepe(AbstractTracker):
     def __init__(self, version='full'):
         self.version = version
         self.model = crepe.build_and_load_model(version)
-        self.method = Tracker.CREPE
-        super().__init__(is_multicore=False)
+        super().__init__(Tracker.CREPE, is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -80,9 +80,8 @@ class Crepe(AbstractTracker):
 
 class Yin(AbstractTracker):
     def __init__(self, threshold=0.8):
-        self.method = Tracker.YIN
         self.threshold = threshold
-        super().__init__(is_multicore=False)
+        super().__init__(Tracker.YIN, is_multicore=False)
 
 
     def predict(self, audio):
@@ -107,7 +106,6 @@ class Yin(AbstractTracker):
 
 class InverseTracker(AbstractTracker):
     def __init__(self, ckpt_version='urmp_ckpt'):
-        self.method = Tracker.DDSP_INV
         self.model_dir = Path(consts.CHECKPOINTS_PATH) / ckpt_version
         self.ckpt = self._get_checpoint_path()
         self.gin_file = self.model_dir / 'operative_config-1281000.gin'
@@ -116,7 +114,7 @@ class InverseTracker(AbstractTracker):
         with gin.unlock_config():
             gin.parse_config_file(self.gin_file, skip_unknown=True)
 
-        super().__init__(is_multicore=False)
+        super().__init__(Tracker.DDSP_INV, is_multicore=False)
 
     def _get_checpoint_path(self):
         ckpt_files = [f for f in tf.io.gfile.listdir(self.model_dir) if 'ckpt' in f]
@@ -171,13 +169,9 @@ class InverseTracker(AbstractTracker):
         return time_, merged_pitch, confidence_pred, 0
 
 
-
-
-
 class Swipe(AbstractTracker):
     def __init__(self):
-        self.method = Tracker.SWIPE
-        super().__init__(is_multicore=True)
+        super().__init__(Tracker.SWIPE, is_multicore=True)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -190,12 +184,11 @@ class Swipe(AbstractTracker):
 
 class Hf0(AbstractTracker):
     def __init__(self):
-        self.method = Tracker.HF0
         self.eng = matlab.engine.start_matlab()
         self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
         self.eng.mirverbose(0)
         self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
-        super().__init__(is_multicore=False)
+        super().__init__(Tracker.HF0, is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -209,10 +202,37 @@ class Hf0(AbstractTracker):
 class PYin(AbstractTracker):
     def __init__(self):
         self.method = Tracker.PYIN
-        super().__init__(is_multicore=True)
+        super().__init__(Tracker.PYIN, is_multicore=True)
 
     def predict(self, audio):
         t0 = time.perf_counter()
         pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR, frame_length=1024, hop_length=160)
         time_ = np.arange(pitch_pred.shape[0]) * 10 / 1000.0
         return time_, pitch_pred, voiced_flags, time.perf_counter() - t0
+
+
+
+class OrignalPYin(AbstractTracker):
+    def __init__(self):
+        super().__init__(Tracker.PYIN, is_multicore=True)
+
+    def predict(self, wav_path):
+        t0 = time.perf_counter()
+        cmd = ['sonic-annotator',
+                '-t', consts.TRANS_PATH / 'pyin.n3',
+                '-w', 'csv',
+                '--csv-basedir', consts.PYIN_TMP,
+                '--csv-force',
+                wav_path]
+        subprocess.call(cmd)
+
+        total_time = time.perf_counter() - t0
+
+        output_path = consts.PYIN_TMP / f'{wav_path.stem}_vamp_pyin_pyin_smoothedpitchtrack.csv'
+        output_file = np.loadtxt(output_path, delimiter=',')
+
+        time_ = output_file[:,0]
+        pitch_pred = output_file[:,1]
+        confidence_pred = (pitch_pred > 0).astype(np.int)
+
+        return time_, pitch_pred, confidence_pred, total_time

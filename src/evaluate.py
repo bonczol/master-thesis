@@ -4,6 +4,7 @@ import pandas as pd
 import pickle
 import consts
 import time
+from method import Tracker
 from multiprocessing import Pool
 from scipy.io import wavfile
 from tqdm import tqdm
@@ -18,14 +19,15 @@ def get_waveform(path):
 
 
 def evaluate(tracker, wav_path):
-    read_sr, waveform = get_waveform(wav_path)
+    if tracker.method == Tracker.PYIN:
+        time, pitch_pred, confidence_pred, evaluation_time = tracker.predict(wav_path)
+    else:
+        read_sr, waveform = get_waveform(wav_path)
+        if consts.SR != read_sr:
+            raise Exception('Sampling rate missmatch')
+        time, pitch_pred, confidence_pred, evaluation_time = tracker.predict(waveform)
 
-    if consts.SR != read_sr:
-        raise Exception('Sampling rate missmatch')
-    
-    time, pitch_pred, confidence_pred, evaluation_time = tracker.predict(waveform)
     f_name = os.path.splitext(os.path.basename(wav_path))[0]
-
     return [f_name, time, pitch_pred, confidence_pred, evaluation_time]
 
 
@@ -39,7 +41,7 @@ def evaluate_dir(tracker, wav_paths):
 
 def run_evaluation(tracker, dataset, noise=None, snr=None):
     print(f'Tracker={tracker.method.value} Dataset={dataset.name} Noise={noise} SNR={snr}')
-    results = evaluate_dir(tracker, dataset.get_wavs(noise, snr)[67:])
+    results = evaluate_dir(tracker, dataset.get_wavs(noise, snr))
     save_path = dataset.get_result(tracker.method.value, noise, snr)
 
     with open(save_path, 'wb') as f:

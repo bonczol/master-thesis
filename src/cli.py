@@ -64,7 +64,7 @@ if __name__ == "__main__":
             Tracker.YIN: Yin,
             Tracker.SWIPE: Swipe,
             Tracker.HF0: Hf0,
-            Tracker.PYIN: PYin
+            Tracker.PYIN: OrignalPYin
          }
 
         trackers = [Tracker(t) for t in args.trackers]

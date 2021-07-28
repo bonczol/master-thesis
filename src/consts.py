@@ -21,9 +21,12 @@ PROCESSED_PATH = DATA_DIR / "processed"
 RESULTS_PATH = OUT_DIR / "results"
 PLOTS_PATH = OUT_DIR / "plots"
 SPECTROGRAMS_PATH =  OUT_DIR / "spectrograms"
+PYIN_TMP = OUT_DIR / 'pyin_tmp'
 
 CHECKPOINTS_PATH =  DATA_DIR / "checkpoints"
 DEGRADE_TMP_PATH = DATA_DIR / "degrade_tmp"
+TRANS_PATH = DATA_DIR / 'trans'
+
 
 PROC_WAV_EXT = 'wav'
 PROC_LABEL_EXT = 'csv'
