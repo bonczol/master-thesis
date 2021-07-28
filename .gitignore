@@ -129,7 +129,13 @@ dmypy.json
 .pyre/
 
 
-data/
+data/checkpoints
+data/degrade_tmp
+data/processed
+data/raw
+
+
+
 out/
 src/test.py
 .vscode/
