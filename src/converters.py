@@ -9,6 +9,8 @@ from multiprocessing import Pool
 from pydub import AudioSegment
 from utils import semitones2hz
 import consts
+import array
+import sox
 
 
 class Converter:
@@ -48,7 +50,6 @@ class Converter:
         self._save_labels_binary(labels)
 
 
-
 class MirConverter(Converter):
     def __init__(self, raw, proc):
         self.label_t0 = 0.02
@@ -63,17 +64,17 @@ class MirConverter(Converter):
         return self._convert_example
 
     def _convert_example(self, wav_path, label_path, out_wav_path, out_label_path, out_wav_background_path):
-        audio = AudioSegment.from_file(wav_path)
-        background, audio = audio.split_to_mono()
+        sox.Transformer().remix({1: [2]}) \
+                         .build(str(wav_path), str(out_wav_path))
+
+        sox.Transformer().remix({1: [1]}) \
+                         .build(str(wav_path), str(out_wav_background_path))
 
         freq_est = np.loadtxt(label_path, delimiter=',')
         freq_est  = np.where(freq_est <= 0.0, freq_est, semitones2hz(freq_est - 3.5))
-        t = np.arange(self.label_t0, audio.duration_seconds - (self.label_ts - 0.00001),  self.label_ts)
-
+        duration = sox.file_info.duration(str(wav_path))
+        t = np.arange(self.label_t0, duration - (self.label_ts - 0.00001),  self.label_ts)
         time_series = np.transpose(np.vstack((t, freq_est)))
-
-        audio.export(out_wav_path, format='wav')
-        background.export(out_wav_background_path, format='wav')
         np.savetxt(out_label_path, time_series, delimiter=',', fmt='%1.6f')
 
     def _get_labels_data(self):
@@ -94,9 +95,8 @@ class MdbConverter(Converter):
         return self._convert_example
 
     def _convert_example(self, wav_path, label_path, out_wav_path, out_label_path):
-        audio = AudioSegment.from_file(wav_path)
-        audio = audio.set_frame_rate(consts.SR)
-        audio.export(out_wav_path, format='wav')
+        sox.Transformer().convert(consts.SR, 1, 16) \
+                         .build(str(wav_path), str(out_wav_path))
         shutil.copyfile(label_path, out_label_path)
 
     def _get_instrument(self, path):
@@ -122,7 +122,6 @@ class MdbConverter(Converter):
         return labels_df
 
 
-
 class UrmpConverter(Converter):
     def __init__(self, raw, proc):
         super().__init__(raw, proc)
@@ -131,13 +130,11 @@ class UrmpConverter(Converter):
         return self._convert_example
 
     def _convert_example(self, wav_path, label_path, out_wav_path, out_label_path):
-        audio = AudioSegment.from_file(wav_path)
-        audio = audio.set_frame_rate(consts.SR)
-        audio.export(out_wav_path, format='wav')
+        sox.Transformer().convert(consts.SR, 1, 16) \
+                         .build(str(wav_path), str(out_wav_path))
     
         label = np.loadtxt(label_path, delimiter='\t')
         np.savetxt(out_label_path, label, delimiter=',', fmt='%1.6f')
-
 
 
 class PtdbConverter(Converter):
@@ -159,4 +156,3 @@ class PtdbConverter(Converter):
 
         audio.export(out_wav_path, format='wav')
         np.savetxt(out_label_path, timeseries, delimiter=',', fmt='%1.6f')
-
