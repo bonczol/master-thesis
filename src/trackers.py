@@ -207,7 +207,9 @@ class PYin(AbstractTracker):
     def predict(self, audio):
         t0 = time.perf_counter()
         pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR, frame_length=1024, hop_length=160)
-        time_ = np.arange(pitch_pred.shape[0]) * 10 / 1000.0
+        pitch_pred = np.nan_to_num(pitch_pred)
+        # time_ = np.arange(pitch_pred.shape[0]) * 10 / 1000.0
+        time_ = librosa.times_like(pitch_pred, sr=consts.SR, hop_length=160)
         return time_, pitch_pred, voiced_flags, time.perf_counter() - t0
 
 
@@ -223,8 +225,10 @@ class OrignalPYin(AbstractTracker):
                 '-w', 'csv',
                 '--csv-basedir', consts.PYIN_TMP,
                 '--csv-force',
-                wav_path]
-        subprocess.call(cmd)
+                wav_path,
+                '--normalise']
+        # subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(cmd)
 
         total_time = time.perf_counter() - t0
 
@@ -233,6 +237,7 @@ class OrignalPYin(AbstractTracker):
 
         time_ = output_file[:,0]
         pitch_pred = output_file[:,1]
+        pitch_pred = np.where(pitch_pred > 0, pitch_pred, 0)
         confidence_pred = (pitch_pred > 0).astype(np.int)
 
         return time_, pitch_pred, confidence_pred, total_time

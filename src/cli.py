@@ -90,18 +90,18 @@ if __name__ == "__main__":
     if args.which == 'evaluate':
         concrete_trackers = [TRACKER[t]() for t in trackers]
 
-        for dataset, tracker in product(datasets_outputs, concrete_trackers):
-                evaluate.run_evaluation(tracker, dataset, None, None)
-
         if args.noise:
             for dataset, tracker, color, snr in product(datasets_outputs, concrete_trackers, colors, snrs):
                 evaluate.run_evaluation(tracker, dataset, color, snr)
+        else:
+            for dataset, tracker in product(datasets_outputs, concrete_trackers):
+                    evaluate.run_evaluation(tracker, dataset, None, None)
 
 
     if args.which == 'plot':
         for dataset in datasets_outputs:
             plots.plot(dataset,  trackers)
-
+ 
 
     if args.which == 'subplot':
         ploting.subplot(datasets_outputs, trackers)
