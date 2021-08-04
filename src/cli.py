@@ -7,6 +7,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import consts
 import evaluate
 import plots
+import post
 from itertools import product
 import ploting
 from method import Tracker
@@ -33,11 +34,11 @@ if __name__ == "__main__":
     evaluate_parser = subparsers.add_parser('evaluate', parents=[dataset_parser, tracker_parser])
     evaluate_parser.add_argument('--noise', action='store_true')
 
-    # Plot
-    plot_parser = subparsers.add_parser('plot', parents=[dataset_parser, tracker_parser])
+    # Post
+    post_parser = subparsers.add_parser('post')
 
      # Subplot
-    subplot_parser = subparsers.add_parser('subplot', parents=[dataset_parser, tracker_parser])
+    subplot_parser = subparsers.add_parser('subplot')
 
     # Degrade
     degrade_parser = subparsers.add_parser('degrade', parents=[dataset_parser])
@@ -46,22 +47,24 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    if args.which in ['evaluate', 'plot', 'subplot', 'degrade']:
+    snrs = [20, 10, 0]
+    colors = ['white', 'pink', 'brown', 'acco']
+    # colors = ['acco']
+    all_datasets = ['MIR-1k', 'MDB-stem-synth', 'URMP']
+    all_trackers = list(Tracker)
+
+
+    if args.which in ['evaluate', 'plot', 'degrade']:
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
 
 
-    if args.which in ['evaluate', 'degrade']:
-        snrs = [20, 10, 0]
-        colors = ['white', 'pink', 'brown']
-
-
-    if args.which in ['evaluate', 'plot', 'subplot']:
+    if args.which in ['evaluate', 'plot']:
         from trackers import *
         TRACKER = {
             Tracker.SPICE: Spice,
             Tracker.CREPE: Crepe,
             Tracker.DDSP_INV: InverseTracker,
-            Tracker.YIN: Yin,
+            # Tracker.YIN: Yin,
             Tracker.SWIPE: Swipe,
             Tracker.HF0: Hf0,
             Tracker.PYIN: OrignalPYin
@@ -98,13 +101,17 @@ if __name__ == "__main__":
                     evaluate.run_evaluation(tracker, dataset, None, None)
 
 
-    if args.which == 'plot':
-        for dataset in datasets_outputs:
-            plots.plot(dataset,  trackers)
+    if args.which == 'post':
+        post.transform(
+            [DatasetOutput(n) for n in ['MIR-1k', 'MDB-stem-synth', 'URMP']],
+            list(Tracker),
+            colors,
+            snrs
+        )
  
 
     if args.which == 'subplot':
-        ploting.subplot(datasets_outputs, trackers)
+        ploting.subplot()
 
 
     if args.which == 'degrade':
@@ -117,7 +124,7 @@ if __name__ == "__main__":
             for snr, modifier in product(snrs, modifiers):
                 modifier.add_accompaniment(snr)
         else:
-            raise NotImplemented
+            raise NotImplemented 
 
         Modifier.clear_tmp_files()
 

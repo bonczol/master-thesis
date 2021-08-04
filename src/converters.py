@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from pydub import AudioSegment
 from utils import semitones2hz
 import consts
-import array
+import array 
 import sox
 
 

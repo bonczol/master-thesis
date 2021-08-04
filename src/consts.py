@@ -22,6 +22,7 @@ RESULTS_PATH = OUT_DIR / "results"
 PLOTS_PATH = OUT_DIR / "plots"
 SPECTROGRAMS_PATH =  OUT_DIR / "spectrograms"
 PYIN_TMP = OUT_DIR / 'pyin_tmp'
+POST_RESULTS_PATH = OUT_DIR / "post_results"
 
 CHECKPOINTS_PATH =  DATA_DIR / "checkpoints"
 DEGRADE_TMP_PATH = DATA_DIR / "degrade_tmp"
@@ -42,17 +43,17 @@ LABELS = {
     Tracker.SPICE: 'SPICE',
     Tracker.CREPE: 'CREPE tiny',
     Tracker.DDSP_INV: 'DDSP-INV',
-    Tracker.YIN: 'YIN',
     Tracker.SWIPE: 'SWIPE',
     Tracker.HF0: 'HF0',
     Tracker.PYIN: 'pYin'
 }
 
+DS_ORDER = ['MIR-1k', 'MDB-stem-synth', 'URMP']
+
 THRESHOLDS = {
     Tracker.SPICE: 0.88,
     Tracker.CREPE: 0.67,
     Tracker.DDSP_INV: 0.5,
-    Tracker.YIN: 0.5,
     Tracker.SWIPE: 0.5,
     Tracker.HF0: 0.5,
     Tracker.PYIN: 0.5
