@@ -51,3 +51,29 @@ def resample_zeros(times, frequencies, times_new):
     frequencies_resampled *= (frequency_mask != 0)
     return frequencies_resampled
 
+
+
+def rca_multi_tolerance(ref_voicing, ref_cent, est_voicing, est_cent,
+                        cent_tolerances):
+
+    mir_eval.melody.validate_voicing(ref_voicing, est_voicing)
+    mir_eval.melody.validate(ref_voicing, ref_cent, est_voicing, est_cent)
+    # When input arrays are empty, return 0 by special case
+    # If there are no voiced frames in reference, metric is 0
+    if ref_voicing.size == 0 or ref_voicing.sum() == 0 \
+       or ref_cent.size == 0 or est_cent.size == 0:
+        return 0.
+
+    # # Raw chroma = same as raw pitch except that octave errors are ignored.
+    nonzero_freqs = np.logical_and(est_cent != 0, ref_cent != 0)
+
+    if sum(nonzero_freqs) == 0:
+        return 0.
+
+    freq_diff_cents = np.abs(ref_cent - est_cent)[nonzero_freqs]
+    octave = 1200.0 * np.floor(freq_diff_cents / 1200 + 0.5)
+    voiced = np.sum(ref_voicing)
+    return (
+        [np.sum(ref_voicing[nonzero_freqs] * (np.abs(freq_diff_cents - octave) < t)) / voiced
+         for t in cent_tolerances]
+    )

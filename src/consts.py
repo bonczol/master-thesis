@@ -1,6 +1,9 @@
 import seaborn as sns
+import pandas as pd
 from method import Tracker
 from pathlib import Path
+from pandas.api.types import CategoricalDtype
+
 '''
 Project structure
 '''
@@ -38,6 +41,11 @@ Plot params
 palette = sns.color_palette()
 
 COLORS = {method.value: color for method, color in zip(Tracker, palette)}
+METHODS_VAL = [m.value for m in list(Tracker)]
+DS_ORDER = ['MIR-1k', 'MDB-stem-synth', 'URMP']
+
+DS_CAT = CategoricalDtype(categories=DS_ORDER, ordered=True)
+METHOD_CAT = CategoricalDtype(categories=METHODS_VAL, ordered=True)
 
 LABELS = {
     Tracker.SPICE: 'SPICE',
@@ -48,7 +56,6 @@ LABELS = {
     Tracker.PYIN: 'pYin'
 }
 
-DS_ORDER = ['MIR-1k', 'MDB-stem-synth', 'URMP']
 
 THRESHOLDS = {
     Tracker.SPICE: 0.88,
