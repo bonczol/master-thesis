@@ -141,11 +141,13 @@ class InverseTracker(AbstractTracker):
 
 
     def predict(self, audio):
+        total_time = 0
+
         # Round to 512
         time_steps = int(audio.shape[0] / self.hop)
         n_samples = time_steps * self.hop
         audio = audio[:n_samples]
-
+        
         frame_length =  512000
         frames = [audio[i*frame_length:(i+1)*frame_length] 
                   for i in range(int(np.ceil(len(audio)/frame_length)))]
@@ -159,14 +161,16 @@ class InverseTracker(AbstractTracker):
                 model = self._setup_model(len(frame))
 
             frame = frame.reshape(1, -1)
-            merged_pitch.append(self._predict_chunk(model, frame))
 
+            start = time.perf_counter()
+            merged_pitch.append(self._predict_chunk(model, frame))
+            total_time += time.perf_counter() - start
 
         merged_pitch = np.concatenate(merged_pitch)
         confidence_pred = np.ones(merged_pitch.shape)
         time_ = np.arange(merged_pitch.shape[0]) * self.step_size / 1000.0
 
-        return time_, merged_pitch, confidence_pred, 0
+        return time_, merged_pitch, confidence_pred, total_time
 
 
 class Swipe(AbstractTracker):

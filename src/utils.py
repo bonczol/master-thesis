@@ -2,6 +2,7 @@ import os
 import numpy as np
 import mir_eval
 import scipy
+import pandas as pd
 
 
 def read_label(path):
@@ -77,3 +78,12 @@ def rca_multi_tolerance(ref_voicing, ref_cent, est_voicing, est_cent,
         [np.sum(ref_voicing[nonzero_freqs] * (np.abs(freq_diff_cents - octave) < t)) / voiced
          for t in cent_tolerances]
     )
+
+
+def explode_custom(data, cols_to_explode):
+    cols_to_preserve = list(set(data.columns) - set(cols_to_explode))
+
+    flat_df = pd.concat([data[cols_to_preserve + [col]].explode(col) 
+                            for col in cols_to_explode], axis=1)
+    return flat_df.loc[:,~flat_df.columns.duplicated()]
+

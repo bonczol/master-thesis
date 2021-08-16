@@ -6,6 +6,7 @@ import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import consts
 import evaluate
+import spectrograms
 import plots
 import post
 from itertools import product
@@ -40,6 +41,9 @@ if __name__ == "__main__":
      # Subplot
     subplot_parser = subparsers.add_parser('subplot')
 
+    # Spectrograms
+    spec_parser = subparsers.add_parser('spec', parents=[tracker_parser])
+
     # Degrade
     degrade_parser = subparsers.add_parser('degrade', parents=[dataset_parser])
     degrade_parser.add_argument('-t', '--type', nargs='?')
@@ -48,7 +52,8 @@ if __name__ == "__main__":
 
 
     snrs = [20, 10, 0]
-    colors = ['white', 'pink', 'brown', 'acco']
+    colors = ['white', 'pink', 'brown', 'blue', 'violet', 'acco']
+    # colors = ['blue', 'violet']
     # colors = ['acco']
     all_datasets = ['MIR-1k', 'MDB-stem-synth', 'URMP']
     all_trackers = list(Tracker)
@@ -58,7 +63,7 @@ if __name__ == "__main__":
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
 
 
-    if args.which in ['evaluate', 'plot']:
+    if args.which in ['evaluate', 'plot', 'spec']:
         from trackers import *
         TRACKER = {
             Tracker.SPICE: Spice,
@@ -76,7 +81,7 @@ if __name__ == "__main__":
     if args.which == 'prepare':
         DATASET_INPUT = {
             'MIR-1k': MirInput, 'MDB-stem-synth': MdbInput, 
-            'URMP': UrmpInput,'PTDB-TUG': PtdbInput
+            'URMP': UrmpInput, 'PTDB-TUG': PtdbInput
         }
         CONVERTERS = {
             'MIR-1k': MirConverter,'MDB-stem-synth': MdbConverter, 
@@ -113,6 +118,11 @@ if __name__ == "__main__":
     if args.which == 'subplot':
         ploting.subplot()
 
+
+    if args.which == 'spec':
+        concrete_trackers = [TRACKER[t]() for t in trackers]
+        spectrograms.generate(concrete_trackers)
+        
 
     if args.which == 'degrade':
         modifiers = [Modifier(d) for d in datasets_outputs]

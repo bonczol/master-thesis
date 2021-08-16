@@ -1,17 +1,17 @@
 import numpy as np
 import pickle
+from collections import defaultdict
 import pandas as pd
-import itertools
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
-from seaborn import palettes
 import utils
+import post
 import consts
 import mir_eval.melody as mir
 import seaborn as sns
+from method import Tracker
 pd.options.display.max_columns = 50
 pd.options.display.max_rows = 100
-from method import Tracker
 
 
 def add_hlines(latex_code):
@@ -111,7 +111,6 @@ def instruments(data, output_path):
     ax2 = sns.lineplot(x="instrument", y="ref_hz", data=avg_inst_f0,  style=True, dashes=[(2,2)], color='red')
     ax2.set_ylabel("Average frequency of an instrument", color='red')
     ax2.get_legend().remove()
-    # fig.set_size_inches(10, 6)
     fig.tight_layout()
     fig.savefig(output_path)
     plt.clf()
@@ -119,15 +118,16 @@ def instruments(data, output_path):
 
 
 def noise_plot(data, output_path):
-    urmp_data = data.loc[(data.dataset == 'URMP') & (data.noise.isin(['white', 'pink', 'brown'])), :]
+    noise_types = ['brown', 'pink', 'white', 'blue', 'violet']
+    urmp_data = data.loc[(data.dataset == 'URMP') & (data.noise.isin(noise_types)), :]
     urmp_data.sort_values(by=['snr'], ascending=False, inplace=True)
-    
-    g = sns.FacetGrid(urmp_data, col="noise", col_wrap=3)
+
+    g = sns.FacetGrid(urmp_data, col="noise", col_wrap=2, col_order=noise_types, aspect=1.33)
     g.map_dataframe(sns.lineplot, x='snr', y="RPA", hue="method", data=urmp_data,  sort=False,
         palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
     g.set_titles(col_template="{col_name}")
-    g.set_axis_labels("SNR(dB)", "Raw pitch accuracy")
-    g.add_legend()
+    g.set_axis_labels("SNR [dB]", "Raw Pitch Accuracy")
+    g.add_legend(ncol=2, bbox_to_anchor=(0.7, 0.25))
     g.savefig(output_path)
     plt.clf()
 
@@ -138,10 +138,11 @@ def acco_plot(data, output_path):
 
     plot = sns.lineplot(x='snr', y="RPA", hue="method", data=mir_data,  sort=False,
         palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
-    plot.set_xlabel("SNR(dB)")
-    plot.set_ylabel("Raw pitch accuracy")
+    plot.set_xlabel("SNR [dB]")
+    plot.set_ylabel("Raw Pitch Accuracy")
 
     fig = plot.get_figure()
+    fig.tight_layout()
     fig.savefig(output_path)
     plt.clf()
 
@@ -229,23 +230,57 @@ def datasets_info(data, output_path):
     print(latex_code)
 
 
+def calc_latency(data, output_path):
+    latency = (data.loc[(data.noise == 'clean') & data.dataset.isin(['URMP', 'MDB-stem-synth'])]
+                   .groupby(['method']).apply(lambda g: g.evaluation_time.sum() / (g.duration.sum()))
+                   .apply(lambda x: x * 1000) # to miliseconds
+    )
+    latency.to_csv(output_path)
+    latex_code = latency.to_latex()
+    print(latex_code)
+
+
+def grid_search(data):
+    thresholds = np.arange(0.5, 1, 0.01)
+    consts = defaultdict(list)
+
+    for t in thresholds:
+        results_cents = data.apply(post.add_voicing_and_cents, axis=1)
+        results_cents["OA"] = results_cents.apply(lambda r:
+                mir.overall_accuracy(r['ref_voicing'], r['ref_cent'], r['est_voicing'], r['est_cent']), axis=1)
+     
+        means = results_cents.groupby(['method'])["OA"].mean()
+        for method, mean_oa in means.iteritems():
+            consts[method].append(mean_oa)
+
+    for key in consts.keys():
+        best_treshold_idx = np.argmax(consts[key])
+        best_treshold = thresholds[best_treshold_idx]
+        print(key, best_treshold, f'oa = {np.max(consts[key])}')
+
+
 def subplot():
     sns.set_theme()
     # with open(consts.POST_RESULTS_PATH / 'labels.pkl', 'rb') as f:
     #     labels =  pickle.load(f)
 
-    # with open(consts.POST_RESULTS_PATH / 'data.pkl', 'rb') as f:
-    #     data = pickle.load(f)
+    with open(consts.POST_RESULTS_PATH / 'data.pkl', 'rb') as f:
+        data = pickle.load(f)
+
+    '''
+    Grid search - threshold
+    '''
+    # grid_search(data[(data.dataset == 'MIR-1k') & (data.method == 'CREPE') & (data.noise == 'clean')])
 
     # with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'rb') as f:
     #     flat_data = pickle.load(f)
 
-    with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'rb') as f:
-        flat_metrics = pickle.load(f)
+    # with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'rb') as f:
+    #     flat_metrics = pickle.load(f)
 
-    flat_metrics = flat_metrics.astype({'dataset': consts.DS_CAT, 'method': consts.METHOD_CAT})
+    # flat_metrics = flat_metrics.astype({'dataset': consts.DS_CAT, 'method': consts.METHOD_CAT})
 
-    metrics = ['RPA', 'RWC', 'VRR', 'VRF', 'OA']
+    # metrics = ['RPA', 'RWC', 'VRR', 'VRF', 'OA']
     # metrics_summary(data, metrics, consts.RESULTS_PATH / 'summary.csv')
 
     """
@@ -262,7 +297,7 @@ def subplot():
     # box_plot_grid(clean_data_melt, consts.PLOTS_PATH / 'boxplot_pitch.pdf')
 
     # Box plot VRR VRF 
-    voicing_table(flat_metrics)
+    # voicing_table(flat_metrics)
     # box_plot_voicing(data, consts.PLOTS_PATH / 'boxplot_vocing.pdf')
 
 
@@ -276,15 +311,21 @@ def subplot():
     # Noise urmp
     # noise_metrics = flat_metrics.copy()
     # for _, row in noise_metrics[noise_metrics.noise == 'clean'].iterrows():  
-    #     for noise in ['white', 'pink', 'brown', 'acco']:
+    #     for noise in ['white', 'pink', 'brown', 'acco', 'blue', 'violet']:
     #         new_row = row.copy()
     #         new_row['noise'] = noise
     #         new_row['snr'] = 'inf'
     #         noise_metrics = noise_metrics.append(new_row)
     # noise_metrics = noise_metrics.loc[noise_metrics.noise != 'clean', :]
 
-    # # noise_plot(noise_metrics, consts.PLOTS_PATH / 'noise.pdf')
+    # noise_plot(noise_metrics, consts.PLOTS_PATH / 'noise.pdf')
     # acco_plot(noise_metrics, consts.PLOTS_PATH / 'acco.pdf')
+
+
+    """
+    Latency
+    """
+    calc_latency(data, consts.PLOTS_PATH / 'latency.csv')
 
     
 

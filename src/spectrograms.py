@@ -1,43 +1,59 @@
-import utils
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa
-import os
+import consts
+import evaluate
+import pandas as pd
+import seaborn as sns
+import sox
+import utils
+pd.options.display.max_columns = 50
+pd.options.display.max_rows = 100
 from librosa import display as librosadisplay
-from scipy.io import wavfile
-from scipy import signal
-
-MAX_ABS_INT16 = 32768.0
 
 
-def plot_stft(x, sample_rate, output_path, show_black_and_white=False):
-  x_stft = np.abs(librosa.stft(x, hop_length=256, n_fft=2048))
-  fig, ax = plt.subplots()
-  fig.set_size_inches(12, 5)
+def plot_stft(x, sample_rate, color):
+  x_stft = np.abs(librosa.stft(x, hop_length=32, n_fft=2048,  win_length=1024))
   x_stft_db = librosa.amplitude_to_db(x_stft, ref=np.max)
-  if(show_black_and_white):
-    librosadisplay.specshow(data=x_stft_db, y_axis='log', 
-                             sr=sample_rate, cmap='gray_r')
-  else:
-    librosadisplay.specshow(data=x_stft_db, y_axis='log', sr=sample_rate)
-
-  plt.colorbar(format='%+2.0f dB')
-  plt.savefig(output_path)
-  plt.close(fig)
+  librosadisplay.specshow(data=x_stft_db, x_axis="s", y_axis='log', sr=sample_rate, hop_length=32, cmap='coolwarm')
+  plt.ylim(40, 200)
+  plt.yticks([40, 80, 120, 160 , 200])
+  # plt.ylim(350, 750)
+  # plt.yticks(np.arange(350, 750, 100))
 
 
-def main():
-    parser, conf = utils.get_parser_and_config()
-    args = parser.parse_args()
-    conf = conf[args.ds_name]
+    
+def generate(trackers):
+  sns.set_theme()
+  for wav_path in (consts.SPECTROGRAMS_WAV_PATH / "raw").glob('*.wav'):
+    proc_wav_path = consts.SPECTROGRAMS_WAV_PATH / "processed" / wav_path.name
+    (sox.Transformer().convert(consts.SR, 1, 16) 
+                      .build(str(wav_path), str(proc_wav_path)))
 
-    wav_paths = utils.get_wav_paths(conf['processed_wav_dir'])
+    y, _ = librosa.load(proc_wav_path, sr=consts.SR, duration=2)
+    results = []
+    for tracker in trackers:
+      _, time, pitch, confidence, _ = evaluate.evaluate(tracker, proc_wav_path)
+      t = consts.THRESHOLDS[tracker.method]
+      pitch = np.where(confidence > t, pitch, np.inf)
+      results.append([tracker.method.value, time, pitch])
 
-    for wav_path in wav_paths:
-        sr, waveform = wavfile.read(wav_path, 'rb')
-        fname = os.path.splitext(os.path.basename(wav_path))[0]
-        output_path = f'{conf["specgram_dir"]}/{fname}.jpg'
-        fig = plot_stft(waveform / MAX_ABS_INT16 , sr, output_path, show_black_and_white=True)
+    results_df = pd.DataFrame(results, columns=["method", "time", "pitch"])
+    results_df = (results_df.astype({'method': consts.METHOD_CAT})
+                            .sort_values(by=['method']))
 
-if __name__ == "__main__":
-    main()
+    flat_df = utils.explode_custom(results_df, ["time", "pitch"])
+    flat_df = flat_df.astype({"time": np.float32, "pitch": np.float32})
+    flat_df[["time", "pitch"]] = flat_df[["time", "pitch"]].applymap(lambda x:  np.inf if x <= 0 else x)
+    
+    g = sns.FacetGrid(flat_df, col='method',col_wrap=2, aspect=1.33)
+    g.map(plot_stft, x=y, sample_rate=consts.SR)
+    g.map_dataframe(sns.lineplot, x='time', y='pitch', color='green', linestyle='--')
+    g.set_titles(col_template="{col_name}")
+    for ax in g.axes.flat:
+      ax.set_xlabel("Time [s]")
+      ax.set_ylabel("Frequency [Hz]")
+
+    spec_path = consts.SPECTROGRAMS_PATH / (str(wav_path.stem) + ".png")
+    g.savefig(spec_path)
+ 

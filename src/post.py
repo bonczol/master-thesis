@@ -91,15 +91,6 @@ def calc_metric_flatten(data):
     return pd.DataFrame(rows, columns=['method', 'dataset', 'noise', 'snr', 'RPA', 'RCA', 'VRR', 'VRF', 'OA'])
 
 
-# def flatten_samples2(data, cols_to_explode):
-#     cols_to_preserve = list(set(data.columns) - set(cols_to_explode))
-
-#     flat_df = pd.concat([data[cols_to_preserve + [col]].explode(col) 
-#                             for col in cols_to_explode], axis=1)
-#     return flat_df.loc[:,~flat_df.columns.duplicated()]
-
-
-
 def flatten_samples(data):
     flat_df = pd.concat([data[['file', 'method', 'dataset', 'noise', 'snr', 'instrument', col]].explode(col) 
                          for col in ['ref_voicing', 'ref_cent', 'est_voicing', 'est_cent']], axis=1)
@@ -108,46 +99,34 @@ def flatten_samples(data):
 
 def transform(datasets, trackers, noises, snrs):
     labels = load_all_labels(datasets)
+    results = load_all_results(datasets, trackers, noises, snrs)
+    data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
 
-
-    # results = load_all_results(datasets, trackers, noises, snrs)
-    # data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
-
-    # data = data.apply(add_voicing_and_cents, axis=1)
-    # data = data.apply(calc_metrics, axis=1)
-
-    # types = {
-    #     "method":'category', 
-    #     "dataset":'category', 
-    #     "noise":'category', 
-    #     "snr":'category',
-    #     "instrument": 'category',
-    # }
-    # data = data.astype(types)
-
+    data = data.apply(add_voicing_and_cents, axis=1)
+    data = data.apply(calc_metrics, axis=1)
 
     with open(consts.POST_RESULTS_PATH / 'labels.pkl', 'wb') as f:
         pickle.dump(labels, f)
 
-    # with open(consts.POST_RESULTS_PATH / 'data.pkl', 'wb') as f:
-    #     pickle.dump(data, f)
+    with open(consts.POST_RESULTS_PATH / 'data.pkl', 'wb') as f:
+        pickle.dump(data, f)
 
-    # flat_data = flatten_samples(data)
-    # types2 = {
-    #     'ref_voicing': 'int8', 
-    #     'ref_cent': 'float32', 
-    #     'est_voicing': 'int8', 
-    #     'est_cent': 'float32', 
-    # }
-    # flat_data = flat_data.astype(types2)
+    flat_data = flatten_samples(data)
+    types2 = {
+        'ref_voicing': 'int8', 
+        'ref_cent': 'float32', 
+        'est_voicing': 'int8', 
+        'est_cent': 'float32', 
+    }
+    flat_data = flat_data.astype(types2)
     
-    # with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'wb') as f:
-    #     pickle.dump(flat_data, f)
+    with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'wb') as f:
+        pickle.dump(flat_data, f)
 
 
-    # flat_metrics = calc_metric_flatten(flat_data)
-    # with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'wb') as f:
-    #     pickle.dump(flat_metrics, f)
+    flat_metrics = calc_metric_flatten(flat_data)
+    with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'wb') as f:
+        pickle.dump(flat_metrics, f)
 
 
 

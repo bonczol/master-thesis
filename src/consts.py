@@ -20,6 +20,7 @@ LABELS_BIN_FILE = "labels.pkl"
 
 RAW_PATH = DATA_DIR / "raw"
 PROCESSED_PATH = DATA_DIR / "processed"
+SPECTROGRAMS_WAV_PATH = DATA_DIR / "spectrograms"
 
 RESULTS_PATH = OUT_DIR / "results"
 PLOTS_PATH = OUT_DIR / "plots"

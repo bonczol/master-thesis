@@ -33,7 +33,7 @@ def evaluate(tracker, wav_path):
 
 def evaluate_dir(tracker, wav_paths):
     if tracker.is_multicore:
-        with Pool() as pool:
+        with Pool(processes=1) as pool:
             return pool.starmap(evaluate, zip(repeat(tracker), wav_paths))
     else:
         return [evaluate(tracker, wav_path) for wav_path in tqdm(wav_paths)]
