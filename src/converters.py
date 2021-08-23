@@ -6,11 +6,10 @@ import pandas as pd
 import yaml
 from pathlib import Path
 from multiprocessing import Pool
-from pydub import AudioSegment
 from utils import semitones2hz
 import consts
-import array 
 import sox
+import re
 
 
 class Converter:
@@ -19,7 +18,7 @@ class Converter:
         self.proc = proc
 
     def _convert_args(self):
-        return zip(self.raw.get_wavs(), self.raw.get_labels(), 
+        return zip(self.raw.get('audio'), self.raw.get('pitch'), 
                    self.proc.get_wavs(), self.proc.get_labels())
 
     def _convert_func(self):
@@ -57,7 +56,7 @@ class MirConverter(Converter):
         super().__init__(raw, proc)
 
     def _convert_args(self):
-        return zip(self.raw.get_wavs(), self.raw.get_labels(), self.proc.get_wavs(), 
+        return zip(self.raw.get('audio'), self.raw.get('pitch'), self.proc.get_wavs(), 
                    self.proc.get_labels(), self.proc.get_background())
 
     def _convert_func(self):
@@ -80,8 +79,8 @@ class MirConverter(Converter):
     def _get_labels_data(self):
         labels_df = super()._get_labels_data()
 
-        with Pool() as pool: 
-            vocals = pool.map(np.loadtxt, self.raw.get_vocals())
+        with Pool(processes=1) as pool: 
+            vocals = pool.map(np.loadtxt, self.raw.get('vocal'))
         
         vocals = pd.Series([v.astype(np.bool) for v in vocals], name='vocal')
         return pd.concat([labels_df, vocals], axis=1)
@@ -112,7 +111,7 @@ class MdbConverter(Converter):
         labels_df = super()._get_labels_data()
 
         with Pool() as pool: 
-            instruments_dicts = pool.map(self._get_instrument, self.raw.get_metadata())
+            instruments_dicts = pool.map(self._get_instrument, self.raw.get('metadata'))
 
         instruments_dict_merged = {filename: instrument for d in instruments_dicts 
                                    for filename, instrument in d.items()}
@@ -126,33 +125,31 @@ class UrmpConverter(Converter):
     def __init__(self, raw, proc):
         super().__init__(raw, proc)
 
+    def _convert_args(self):
+        return zip(self.raw.get('audio'), self.raw.get('pitch'), self.raw.get('notes'),
+         self.proc.get_wavs(), self.proc.get_labels(), self.proc.get_notes())
+
     def _convert_func(self):
         return self._convert_example
 
-    def _convert_example(self, wav_path, label_path, out_wav_path, out_label_path):
+    def _convert_example(self, wav_path, label_path, note_path, out_wav_path, out_label_path, out_note_path):
         sox.Transformer().convert(consts.SR, 1, 16) \
                          .build(str(wav_path), str(out_wav_path))
     
         label = np.loadtxt(label_path, delimiter='\t')
         np.savetxt(out_label_path, label, delimiter=',', fmt='%1.6f')
 
+        start, pitch, duration =  pd.read_csv(note_path, sep='\t+', engine='python').T.to_numpy()
+        intervals = np.transpose(np.vstack((start, start + duration, pitch)))
+        np.savetxt(out_note_path, intervals, delimiter=',', fmt='%1.6f')
 
-class PtdbConverter(Converter):
-    def __init__(self, raw, proc):
-        super().__init__(raw, proc)
+    def _get_labels_data(self):
+        labels_df = super()._get_labels_data()
+
+        with Pool() as pool: 
+            notes = pool.map(utils.read_notes, self.proc.get_notes())
+        a = 1
+        notes_df = pd.DataFrame(notes, columns=['ref_note_interval', 'ref_note_pitch'])
+        return pd.concat([labels_df, notes_df], axis=1)
 
 
-    def _convert_func(self):
-        return self._convert_example
-
-    def _convert_example(self, wav_path, label_path, out_wav_path, out_label_path):
-        audio = AudioSegment.from_file(wav_path)
-        audio = audio.set_frame_rate(consts.SR)
-    
-        label = np.loadtxt(label_path, delimiter=' ')
-        pitch = label[:, 0]
-        time = np.arange(pitch.shape[0]) * 0.01 + 0.016
-        timeseries = np.transpose(np.vstack((time, pitch)))
-
-        audio.export(out_wav_path, format='wav')
-        np.savetxt(out_label_path, timeseries, delimiter=',', fmt='%1.6f')

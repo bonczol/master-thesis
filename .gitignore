@@ -134,6 +134,7 @@ data/degrade_tmp
 data/processed
 data/raw
 data/spectrograms
+src/pypYIN_numpy
 
 
 

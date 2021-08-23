@@ -4,16 +4,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-import consts
 import evaluate
 import spectrograms
-import plots
 import post
 from itertools import product
 import ploting
-from method import Tracker
-from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, PtdbInput
-from converters import MirConverter, MdbConverter, UrmpConverter, PtdbConverter
+from method import Method
+from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput
+from transcribers import CrepeHmmTrans, PyinTrans
+from converters import MirConverter, MdbConverter, UrmpConverter
 from degrader import Modifier
 
 
@@ -34,6 +33,7 @@ if __name__ == "__main__":
     # Evaluate
     evaluate_parser = subparsers.add_parser('evaluate', parents=[dataset_parser, tracker_parser])
     evaluate_parser.add_argument('--noise', action='store_true')
+    evaluate_parser.add_argument('--notes', action='store_true')
 
     # Post
     post_parser = subparsers.add_parser('post')
@@ -53,43 +53,42 @@ if __name__ == "__main__":
 
     snrs = [20, 10, 0]
     colors = ['white', 'pink', 'brown', 'blue', 'violet', 'acco']
-    # colors = ['blue', 'violet']
-    # colors = ['acco']
     all_datasets = ['MIR-1k', 'MDB-stem-synth', 'URMP']
-    all_trackers = list(Tracker)
+    all_trackers = list(Method)
 
 
-    if args.which in ['evaluate', 'plot', 'degrade']:
+    if args.which in ['evaluate', 'degrade']:
         datasets_outputs = [DatasetOutput(d) for d in args.datasets]
 
 
-    if args.which in ['evaluate', 'plot', 'spec']:
+    if args.which in ['evaluate', 'spec']:
         from trackers import *
         TRACKER = {
-            Tracker.SPICE: Spice,
-            Tracker.CREPE: Crepe,
-            Tracker.DDSP_INV: InverseTracker,
-            # Tracker.YIN: Yin,
-            Tracker.SWIPE: Swipe,
-            Tracker.HF0: Hf0,
-            Tracker.PYIN: OrignalPYin
+            Method.SPICE: Spice,
+            Method.CREPE: Crepe,
+            Method.DDSP_INV: InverseTracker,
+            Method.SWIPE: Swipe,
+            Method.HF0: Hf0,
+            Method.PYIN: OrignalPYin,
+            Method.CREPE_MIDI: CrepeHmmTrans,
+            Method.PYIN_MIDI: PyinTrans
          }
 
-        trackers = [Tracker(t) for t in args.trackers]
+        trackers = [Method(t) for t in args.trackers]
 
 
     if args.which == 'prepare':
         DATASET_INPUT = {
             'MIR-1k': MirInput, 'MDB-stem-synth': MdbInput, 
-            'URMP': UrmpInput, 'PTDB-TUG': PtdbInput
+            'URMP': UrmpInput
         }
         CONVERTERS = {
             'MIR-1k': MirConverter,'MDB-stem-synth': MdbConverter, 
-            'URMP': UrmpConverter,'PTDB-TUG': PtdbConverter
+            'URMP': UrmpConverter
         }
         
         datasets_inputs = [DATASET_INPUT[d]() for d in args.datasets]
-        datasets_outputs = [DatasetOutput(d.name, d.get_files()) for d in datasets_inputs]
+        datasets_outputs = [DatasetOutput(d.name, d.get_filenames('audio')) for d in datasets_inputs]
         converters = [CONVERTERS[in_.name](in_, out_) for in_, out_ in zip(datasets_inputs, datasets_outputs)]
         for converter in converters:
             converter.prepare()
@@ -100,16 +99,16 @@ if __name__ == "__main__":
 
         if args.noise:
             for dataset, tracker, color, snr in product(datasets_outputs, concrete_trackers, colors, snrs):
-                evaluate.run_evaluation(tracker, dataset, color, snr)
+                evaluate.run_evaluation(tracker, dataset, color, snr, args.notes)
         else:
             for dataset, tracker in product(datasets_outputs, concrete_trackers):
-                    evaluate.run_evaluation(tracker, dataset, None, None)
+                    evaluate.run_evaluation(tracker, dataset, None, None, args.notes)
 
 
     if args.which == 'post':
         post.transform(
             [DatasetOutput(n) for n in ['MIR-1k', 'MDB-stem-synth', 'URMP']],
-            list(Tracker),
+            list(Method),
             colors,
             snrs
         )

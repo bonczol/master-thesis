@@ -3,8 +3,9 @@ import pickle
 import pandas as pd
 from itertools import product
 import consts
-import mir_eval.melody as mir
-from method import Tracker
+import mir_eval.melody as mir_mel
+import mir_eval.transcription as mir_trans
+from method import Method
 
 
 def read_result(dataset, tracker, noise, snr):
@@ -12,11 +13,13 @@ def read_result(dataset, tracker, noise, snr):
         return pickle.load(f)
 
 
-def load_all_results(datasets, trackers, noises, snrs):
+def load_all_results(datasets, trackers, noises, snrs, notes=False):
     results = []
 
     for dataset, tracker in product(datasets, trackers):
-        result_path = dataset.get_result(tracker.value, None, None)
+        result_path = dataset.get_result(tracker.value, None, None) if not notes else \
+                      dataset.get_result_notes(tracker.value, None, None)
+
         if result_path.exists():
             result = read_result(dataset, tracker, None, None)
             result['dataset'] = dataset.name
@@ -51,23 +54,23 @@ def load_all_labels(datasets):
 
 
 def add_voicing_and_cents(row):
-    tracker = Tracker(row["method"])
+    tracker = Method(row["method"])
     est_voicing = row['confidence'] > consts.THRESHOLDS[tracker]
 
     row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'] = \
-        mir.to_cent_voicing(row['label_time'], row['label_pitch'], row['time'], row['pitch'], est_voicing, hop=0.032)
+        mir_mel.to_cent_voicing(row['label_time'], row['label_pitch'], row['time'], row['pitch'], est_voicing, hop=0.032)
 
     return row
 
 
 def calc_metrics(row):
-    row["RPA"] = mir.raw_pitch_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
-    row["RWC"]  = mir.raw_chroma_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
+    row["RPA"] = mir_mel.raw_pitch_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
+    row["RWC"]  = mir_mel.raw_chroma_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
 
     if row['dataset'] == "MIR-1k":
-        row["VRR"]  = mir.voicing_recall(row['ref_voicing'], row['est_voicing'])
-        row["VRF"]  = mir.voicing_false_alarm(row['ref_voicing'], row['est_voicing'])
-        row["OA"] = mir.overall_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
+        row["VRR"]  = mir_mel.voicing_recall(row['ref_voicing'], row['est_voicing'])
+        row["VRF"]  = mir_mel.voicing_false_alarm(row['ref_voicing'], row['est_voicing'])
+        row["OA"] = mir_mel.overall_accuracy(row['ref_voicing'], row['ref_cent'], row['est_voicing'], row['est_cent'])
     else:
         row["VRR"], row["VRF"], row["OA"] = np.nan, np.nan, np.nan
 
@@ -78,12 +81,12 @@ def calc_metric_flatten(data):
     rows = []
 
     for (method, dataset, noise, snr), group in data.groupby(['method', 'dataset', 'noise', 'snr']):
-        rpa = mir.raw_pitch_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
-        rwc = mir.raw_chroma_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
+        rpa = mir_mel.raw_pitch_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
+        rwc = mir_mel.raw_chroma_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
         if dataset == "MIR-1k":
-            vrr  = mir.voicing_recall(group['ref_voicing'].values, group['est_voicing'].values)
-            vrf  = mir.voicing_false_alarm(group['ref_voicing'].values, group['est_voicing'].values)
-            oa = mir.overall_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
+            vrr  = mir_mel.voicing_recall(group['ref_voicing'].values, group['est_voicing'].values)
+            vrf  = mir_mel.voicing_false_alarm(group['ref_voicing'].values, group['est_voicing'].values)
+            oa = mir_mel.overall_accuracy(group['ref_voicing'].values, group['ref_cent'].values, group['est_voicing'].values, group['est_cent'].values)
         else:
             vrr, vrf, oa = np.nan, np.nan, np.nan
         rows.append([method, dataset, noise, snr, rpa, rwc, vrr, vrf, oa])
@@ -97,7 +100,24 @@ def flatten_samples(data):
     return flat_df.loc[:,~flat_df.columns.duplicated()]
 
 
-def transform(datasets, trackers, noises, snrs):
+def calc_metrics_trans(row):
+    raw_data = mir_trans.evaluate(row['ref_note_interval'], row['ref_note_pitch'], 
+        row['est_note_interval'], row['est_note_pitch'], pitch_tolerance=50)
+
+    row['COnPOff_Precision'] = raw_data['Precision']
+    row['COnPOff_Recall'] = raw_data['Recall']
+    row['COnPOff_F'] = raw_data['F-measure']
+    row['COnP_Precision'] = raw_data['Precision_no_offset']
+    row['COnP_Recall'] = raw_data['Recall_no_offset']
+    row['COnP_F'] = raw_data['F-measure_no_offset']
+    row['COn_Precision'] = raw_data['Onset_Precision']
+    row['COn_Recall'] = raw_data['Onset_Recall']
+    row['COn_F'] = raw_data['Onset_F-measure']
+
+    return row
+
+
+def transform(datasets, trackers, noises, snrs, notes=False):
     labels = load_all_labels(datasets)
     results = load_all_results(datasets, trackers, noises, snrs)
     data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
@@ -128,6 +148,16 @@ def transform(datasets, trackers, noises, snrs):
     with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'wb') as f:
         pickle.dump(flat_metrics, f)
 
+
+def transform_trans(datasets, transcribers, noises, snrs):
+    labels = load_all_labels(datasets)
+    results = load_all_results(datasets, transcribers, noises, snrs, notes=True)
+    data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
+
+    data = data.apply(calc_metrics_trans, axis=1)
+
+    with open(consts.POST_RESULTS_PATH / 'data_trans.pkl', 'wb') as f:
+        pickle.dump(data, f)
 
 
     

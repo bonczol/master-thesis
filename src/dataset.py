@@ -2,55 +2,57 @@ import consts
 from pathlib import Path
 
 
-class DatasetInput:
-    def __init__(self, name, label_ext, wav_dir='', label_dir='', wav_prefix='', label_prefix=''):
+class Input:
+    def __init__(self, name, ext, directory='', prefix=''):
         self.name = name
-        self._label_ext = label_ext
-        self._dataset_dir = Path(f'{consts.RAW_PATH}/{name}')
-        self._wav_dir = wav_dir
-        self._label_dir = label_dir
-        self._wav_prefix = wav_prefix
-        self._label_prefix = label_prefix
+        self._ext = ext
+        self._dir = directory
+        self._prefix = prefix
+
+    def get_values(self, ds_name):
+        return sorted([p for p in Path(f'{consts.RAW_PATH}/{ds_name}').glob(f'**/{self._dir}/**/*.{self._ext}')
+                       if not str(p.name).startswith('.') 
+                       and str(p.name).startswith(self._prefix)])
+
+
+class DatasetInput:
+    def __init__(self, name, inputs):
+        self.name = name
+        self.inputs = {i.name: i for i in inputs}
+
+    def get(self, input_name):
+        return self.inputs[input_name].get_values(self.name)
+
+    def get_filenames(self, input_name):
+        return [path.stem for path in self.inputs[input_name].get_values(self.name)]
         
-    def get_files(self):
-        return [f.stem for f in self.get_wavs()]
-
-    def get_wavs(self):
-        return sorted([p for p in self._dataset_dir.glob(f'**/{self._wav_dir}/**/*.wav') 
-                       if not str(p.name).startswith('.') 
-                       and str(p.name).startswith(self._wav_prefix)])
-
-    def get_labels(self):
-        return sorted([p for p in self._dataset_dir.glob(f'**/{self._label_dir}/**/*.{self._label_ext}')
-                       if not str(p.name).startswith('.') 
-                       and str(p.name).startswith(self._label_prefix)])
-
 
 class MirInput(DatasetInput):
     def __init__(self):
-        super().__init__('MIR-1k', 'pv', wav_dir='Wavfile', label_dir='PitchLabel')
-        self._vocal_path = self._dataset_dir / 'vocal-nonvocalLabel'
-
-    def get_vocals(self):
-        return sorted(self._vocal_path.glob('*.vocal'))
+        super().__init__(
+            'MIR-1k', 
+            [Input('audio', 'wav', 'Wavfile'), 
+             Input('pitch', 'pv', 'PitchLabel'),
+             Input('vocal', 'vocal', 'vocal-nonvocalLabel')]
+        )
 
 class MdbInput(DatasetInput):
     def __init__(self):
-        super().__init__('MDB-stem-synth', 'csv', wav_dir='audio_stems', label_dir='annotation_stems')
-        self._instument_metadata_path = self._dataset_dir / 'metadata'
-        
-    def get_metadata(self):
-        return sorted(self._instument_metadata_path.glob('*.yaml'))
-
+        super().__init__(
+            'MDB-stem-synth', 
+            [Input('audio', 'wav', 'audio_stems'), 
+             Input('pitch', 'csv', 'annotation_stems'),
+             Input('metadata', 'yaml', 'metadata')]
+        )
 
 class UrmpInput(DatasetInput):
     def __init__(self):
-        super().__init__('URMP','txt', wav_prefix='AuSep', label_prefix='F0s')
-
-
-class PtdbInput(DatasetInput):
-    def __init__(self):
-        super().__init__('PTDB-TUG', 'f0', wav_dir='MIC', label_dir='REF')
+        super().__init__(
+            'URMP',
+            [Input('audio', 'wav', prefix='AuSep'),
+             Input('pitch', 'txt', prefix='F0s'),
+             Input('notes', 'txt', prefix='Notes')]
+        )
 
 
 class DatasetOutput:
@@ -58,14 +60,16 @@ class DatasetOutput:
         self.name = name
 
         # data
-        self._wav_path = Path(f'{consts.PROCESSED_PATH}/{name}/{consts.WAV_DIR}')
+        self._wav_path = consts.PROCESSED_PATH / name / consts.WAV_DIR
         self._wav_bg_path = Path(f'{self._wav_path}_background')
-        self._label_path = Path(f'{consts.PROCESSED_PATH}/{name}/{consts.LABEL_DIR}')
+        self._label_path = consts.PROCESSED_PATH / name / consts.LABEL_DIR
+        self._notes_path = consts.PROCESSED_PATH / name / consts.NOTES_DIR
 
         # out
-        self._plots_path = Path(f'{consts.PLOTS_PATH}/{name}')
-        self._results_path = Path(f'{consts.RESULTS_PATH}/{name}')
-        self._spectrograms_path = Path(f'{consts.SPECTROGRAMS_PATH}/{name}')
+        self._plots_path = consts.PLOTS_PATH / name
+        self._results_path = consts.RESULTS_PATH / name
+        self._results_notes_path = consts.RESULTS_NOTES_PATH / name
+        self._spectrograms_path = consts.SPECTROGRAMS_PATH / name
 
         # direct paths to files
         self.label_bin_path = Path(f'{self._label_path}/{consts.LABELS_BIN_FILE}')
@@ -95,10 +99,15 @@ class DatasetOutput:
         name = "_".join([str(s) for s in [tracker_name, noise_type, snr] if s is not None]) + '.pkl'
         return self._results_path / name
 
+    def get_result_notes(self, transcriber_name, noise_type=None, snr=None):
+        name = "_".join([str(s) for s in [transcriber_name, noise_type, snr] if s is not None]) + '.pkl'
+        return self._results_notes_path / name
+
     def get_spectrogram(self, track_name):
         return self._spectrograms_path / (track_name + '.pdf')
 
     def get_background(self):
         return [self._wav_bg_path / (f + '.wav') for f in self.files]
 
-    # TODO Metadata
+    def get_notes(self):
+        return [self._notes_path / f'{f}.{consts.PROC_NOTE_EXT}' for f in self.files]

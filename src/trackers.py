@@ -1,6 +1,8 @@
+from abc import abstractmethod
 import tensorflow_hub as hub
 import crepe_mod.crepe as crepe
 import aubio
+from method import Method
 import utils
 import numpy as np
 import gin
@@ -10,28 +12,25 @@ import time
 import consts
 import pysptk
 import matlab.engine
-import librosa
-from method import Tracker
 from pathlib import Path
 import tensorflow as tf
 import subprocess
 
-
-class AbstractTracker: 
+class AbstractMethod: 
     def __init__(self, method, is_multicore):
-        self.step_size = 32
-        self.hop = 512
         self.method = method
         self.is_multicore = is_multicore
 
+    @abstractmethod
     def predict(self, audio):
         pass
 
 
-class Spice(AbstractTracker):
+class Spice(AbstractMethod):
     def __init__(self):
+        self.step_size = 32
         self.model = hub.load("https://tfhub.dev/google/spice/2")
-        super().__init__(Tracker.SPICE, is_multicore=False)
+        super().__init__(Method.SPICE, is_multicore=False)
 
     def _predict_chunk(self, chunk):
         model_output = self.model.signatures["serving_default"](tf.constant(chunk, tf.float32))
@@ -66,22 +65,26 @@ class Spice(AbstractTracker):
         return utils.semitones2hz(cqt_bin)
 
 
-class Crepe(AbstractTracker):
-    def __init__(self, version='full'):
-        self.version = version
+class Crepe(AbstractMethod):
+    def __init__(self, step_size=32, version='full', smooth_pitch=False):
+        self.step_size = step_size
+        self.smooth_pitch = smooth_pitch
         self.model = crepe.build_and_load_model(version)
-        super().__init__(Tracker.CREPE, is_multicore=False)
+        super().__init__(Method.CREPE, is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
-        time_, pitch_pred, confidence_pred, _ = crepe.predict(audio, consts.SR, self.model, step_size=32, verbose=0)
+        time_, pitch_pred, confidence_pred, _ = crepe.predict(audio, consts.SR, self.model, step_size=self.step_size,
+                                                              viterbi=self.smooth_pitch, verbose=0)
         return time_, pitch_pred, confidence_pred , time.perf_counter() - t0
 
 
-class Yin(AbstractTracker):
+class Yin(AbstractMethod):
     def __init__(self, threshold=0.8):
+        self.step_size = 32
+        self.hop = 512
         self.threshold = threshold
-        super().__init__(Tracker.YIN, is_multicore=False)
+        super().__init__(Method.CREPE, is_multicore=False)
 
 
     def predict(self, audio):
@@ -104,17 +107,18 @@ class Yin(AbstractTracker):
         return yin(sample)[0], yin.get_confidence()
 
 
-class InverseTracker(AbstractTracker):
+class InverseTracker(AbstractMethod):
     def __init__(self, ckpt_version='urmp_ckpt'):
         self.model_dir = Path(consts.CHECKPOINTS_PATH) / ckpt_version
         self.ckpt = self._get_checpoint_path()
         self.gin_file = self.model_dir / 'operative_config-1281000.gin'
         self.hop = 512
+        self.step_size = 32
 
         with gin.unlock_config():
             gin.parse_config_file(self.gin_file, skip_unknown=True)
 
-        super().__init__(Tracker.DDSP_INV, is_multicore=False)
+        super().__init__(Method.DDSP_INV, is_multicore=False)
 
     def _get_checpoint_path(self):
         ckpt_files = [f for f in tf.io.gfile.listdir(self.model_dir) if 'ckpt' in f]
@@ -173,9 +177,11 @@ class InverseTracker(AbstractTracker):
         return time_, merged_pitch, confidence_pred, total_time
 
 
-class Swipe(AbstractTracker):
+class Swipe(AbstractMethod):
     def __init__(self):
-        super().__init__(Tracker.SWIPE, is_multicore=True)
+        self.step_size = 32
+        self.hop = 512
+        super().__init__(Method.SWIPE, is_multicore=True)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -186,13 +192,13 @@ class Swipe(AbstractTracker):
         return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
 
-class Hf0(AbstractTracker):
+class Hf0(AbstractMethod):
     def __init__(self):
         self.eng = matlab.engine.start_matlab()
         self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
         self.eng.mirverbose(0)
         self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
-        super().__init__(Tracker.HF0, is_multicore=False)
+        super().__init__(Method.HF0, is_multicore=False)
 
     def predict(self, audio):
         t0 = time.perf_counter()
@@ -203,24 +209,10 @@ class Hf0(AbstractTracker):
         return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
 
-class PYin(AbstractTracker):
+
+class OrignalPYin(AbstractMethod):
     def __init__(self):
-        self.method = Tracker.PYIN
-        super().__init__(Tracker.PYIN, is_multicore=True)
-
-    def predict(self, audio):
-        t0 = time.perf_counter()
-        pitch_pred, voiced_flags, _ = librosa.pyin(audio, fmin=32, fmax=2000, sr=consts.SR, frame_length=1024, hop_length=160)
-        pitch_pred = np.nan_to_num(pitch_pred)
-        # time_ = np.arange(pitch_pred.shape[0]) * 10 / 1000.0
-        time_ = librosa.times_like(pitch_pred, sr=consts.SR, hop_length=160)
-        return time_, pitch_pred, voiced_flags, time.perf_counter() - t0
-
-
-
-class OrignalPYin(AbstractTracker):
-    def __init__(self):
-        super().__init__(Tracker.PYIN, is_multicore=True)
+        super().__init__(Method.PYIN, is_multicore=True)
 
     def predict(self, wav_path):
         t0 = time.perf_counter()
@@ -245,3 +237,4 @@ class OrignalPYin(AbstractTracker):
         confidence_pred = (pitch_pred > 0).astype(np.int)
 
         return time_, pitch_pred, confidence_pred, total_time
+

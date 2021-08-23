@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import mir_eval
+import librosa
 import scipy
 import pandas as pd
 
@@ -9,6 +10,19 @@ def read_label(path):
     ts = np.loadtxt(path, delimiter=",")
     f_name = os.path.splitext(os.path.basename(path))[0]
     return [f_name, ts[:,0], ts[:,1]]
+
+
+def read_notes(path):
+    notes = np.loadtxt(path, delimiter=",")
+    return [notes[:, 0:2], notes[:, 2]]
+
+
+def normalize_peak(audio):
+    return audio / np.max(np.abs(audio))
+
+
+def hz2midi(hz):
+    return int(np.around(librosa.hz_to_midi(hz)))
 
 
 def semitones2hz(semitones):

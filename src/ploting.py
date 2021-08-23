@@ -9,7 +9,7 @@ import post
 import consts
 import mir_eval.melody as mir
 import seaborn as sns
-from method import Tracker
+from method import Method
 pd.options.display.max_columns = 50
 pd.options.display.max_rows = 100
 
@@ -53,7 +53,7 @@ def cumulative_grid(data, output_path):
     cumulative_df = pd.DataFrame(rows, columns=['method', 'dataset', 'pitch_diff', 'RPA', 'RCA'])
     
     g = sns.FacetGrid(cumulative_df, col="dataset", col_wrap=2, col_order=consts.DS_ORDER)
-    g.map_dataframe(sns.lineplot, x='pitch_diff',  y="RPA", hue="method", palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
+    g.map_dataframe(sns.lineplot, x='pitch_diff',  y="RPA", hue="method", palette=consts.COLORS, hue_order=[m.value for m in list(Method)])
     g.set_titles(col_template="{col_name}")
     g.add_legend(ncol=2, bbox_to_anchor=(0.7, 0.25))
     g.savefig(output_path)
@@ -75,7 +75,7 @@ def cumulative_grid(data, output_path):
 def box_plot_grid(data, output_path):
     g = sns.FacetGrid(data, col="dataset", col_wrap=2, col_order=consts.DS_ORDER)
     g.map_dataframe(sns.boxplot, x="metric", y="value", hue="method", data=data, 
-        palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)], linewidth=0.5, fliersize=0.25)
+        palette=consts.COLORS, hue_order=[m.value for m in list(Method)], linewidth=0.5, fliersize=0.25)
     g.set_titles(col_template="{col_name}")
     g.set_ylabels('Score')
     g.add_legend(ncol=2, bbox_to_anchor=(0.7, 0.25))
@@ -100,7 +100,7 @@ def instruments(data, output_path):
                               .sort_values(by=['ref_hz'])
                 
     fig, ax1 = plt.subplots()
-    ax1 = sns.scatterplot(y="RPA", x="instrument", hue="method", style="method", data=avg_inst_rpa, palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
+    ax1 = sns.scatterplot(y="RPA", x="instrument", hue="method", style="method", data=avg_inst_rpa, palette=consts.COLORS, hue_order=[m.value for m in list(Method)])
     plt.xticks(rotation=90)
     ax1.set_xlabel('')
     ax1.set_ylabel("Raw pitch accuracy")
@@ -124,7 +124,7 @@ def noise_plot(data, output_path):
 
     g = sns.FacetGrid(urmp_data, col="noise", col_wrap=2, col_order=noise_types, aspect=1.33)
     g.map_dataframe(sns.lineplot, x='snr', y="RPA", hue="method", data=urmp_data,  sort=False,
-        palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
+        palette=consts.COLORS, hue_order=[m.value for m in list(Method)])
     g.set_titles(col_template="{col_name}")
     g.set_axis_labels("SNR [dB]", "Raw Pitch Accuracy")
     g.add_legend(ncol=2, bbox_to_anchor=(0.7, 0.25))
@@ -137,7 +137,7 @@ def acco_plot(data, output_path):
     mir_data.sort_values(by=['snr'], ascending=False, inplace=True)
 
     plot = sns.lineplot(x='snr', y="RPA", hue="method", data=mir_data,  sort=False,
-        palette=consts.COLORS, hue_order=[m.value for m in list(Tracker)])
+        palette=consts.COLORS, hue_order=[m.value for m in list(Method)])
     plot.set_xlabel("SNR [dB]")
     plot.set_ylabel("Raw Pitch Accuracy")
 
