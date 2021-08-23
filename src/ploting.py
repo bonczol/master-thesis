@@ -259,6 +259,24 @@ def grid_search(data):
         print(key, best_treshold, f'oa = {np.max(consts[key])}')
 
 
+def notes_box_plot():
+    with open(consts.POST_RESULTS_PATH / 'data_trans.pkl', 'rb') as f:
+        data = pickle.load(f)
+
+    data = data.melt(id_vars=['file', 'method'], value_vars=['COn', 'COnP', 'COnPOff'],
+        var_name='metric', value_name='metric_value')
+
+
+    boxplot = sns.boxplot(x="metric", y="metric_value", hue="method", data=data, 
+        showmeans=True, linewidth=0.5, fliersize=0.25)
+
+    output_path = consts.PLOTS_PATH / 'box_plot_notes.pdf'
+    boxplot.set_xlabel('')
+    boxplot.set_ylabel('Score')
+    boxplot.get_figure().savefig(output_path)
+    plt.clf()
+
+
 def subplot():
     sns.set_theme()
     # with open(consts.POST_RESULTS_PATH / 'labels.pkl', 'rb') as f:
@@ -325,7 +343,13 @@ def subplot():
     """
     Latency
     """
-    calc_latency(data, consts.PLOTS_PATH / 'latency.csv')
+    # calc_latency(data, consts.PLOTS_PATH / 'latency.csv')
+
+
+    """
+    Notes
+    """
+    notes_box_plot()
 
     
 

@@ -24,7 +24,7 @@ def evaluate(method, wav_path):
     else:
         _, waveform = get_waveform(wav_path)
         result = method.predict(waveform)
-    return [wav_path.name] + list(result)
+    return [wav_path.stem] + list(result)
 
 
 def evaluate_dir(tracker, wav_paths):
@@ -37,11 +37,11 @@ def evaluate_dir(tracker, wav_paths):
 
 def run_evaluation(method, dataset, noise=None, snr=None, notes=False):
     print(f'Method={method.method.value} Dataset={dataset.name} Noise={noise} SNR={snr} Notes={notes}')
-    results = evaluate_dir(method, dataset.get_wavs(noise, snr)[:3])
+    results = evaluate_dir(method, dataset.get_wavs(noise, snr))
 
     if notes:
         save_path = dataset.get_result_notes(method.method.value, noise, snr)
-        columns=["file", "interval", "pitch"]
+        columns=["file", "est_note_interval", "est_note_pitch"]
     else:
         save_path = dataset.get_result(method.method.value, noise, snr)
         columns=["file", "time", "pitch", "confidence", "evaluation_time"]

@@ -37,6 +37,7 @@ if __name__ == "__main__":
 
     # Post
     post_parser = subparsers.add_parser('post')
+    post_parser.add_argument('--notes', action='store_true')
 
      # Subplot
     subplot_parser = subparsers.add_parser('subplot')
@@ -110,7 +111,8 @@ if __name__ == "__main__":
             [DatasetOutput(n) for n in ['MIR-1k', 'MDB-stem-synth', 'URMP']],
             list(Method),
             colors,
-            snrs
+            snrs,
+            args.notes
         )
  
 

@@ -8,8 +8,8 @@ import mir_eval.transcription as mir_trans
 from method import Method
 
 
-def read_result(dataset, tracker, noise, snr):
-    with open(dataset.get_result(tracker.value, noise, snr), 'rb') as f:
+def read_result(path):
+    with open(path, 'rb') as f:
         return pickle.load(f)
 
 
@@ -21,7 +21,7 @@ def load_all_results(datasets, trackers, noises, snrs, notes=False):
                       dataset.get_result_notes(tracker.value, None, None)
 
         if result_path.exists():
-            result = read_result(dataset, tracker, None, None)
+            result = read_result(result_path)
             result['dataset'] = dataset.name
             result['method'] = tracker.value
             result['noise'] = 'clean'
@@ -29,16 +29,18 @@ def load_all_results(datasets, trackers, noises, snrs, notes=False):
             results.append(result)
 
     for dataset, tracker, noise, snr in product(datasets, trackers, noises, snrs):
-        result_path = dataset.get_result(tracker.value, noise, snr)
+        result_path = dataset.get_result(tracker.value, noise, snr) if not notes else \
+                      dataset.get_result_notes(tracker.value,  noise, snr)
+
         if result_path.exists():
-            result = read_result(dataset, tracker, noise, snr)
+            result = read_result(result_path)
             result['dataset'] = dataset.name
             result['method'] = tracker.value
             result['noise'] = noise 
             result['snr'] = str(snr)
             results.append(result)
 
-    return pd.concat(results).dropna()
+    return pd.concat(results)
 
 
 def load_all_labels(datasets):
@@ -104,63 +106,54 @@ def calc_metrics_trans(row):
     raw_data = mir_trans.evaluate(row['ref_note_interval'], row['ref_note_pitch'], 
         row['est_note_interval'], row['est_note_pitch'], pitch_tolerance=50)
 
-    row['COnPOff_Precision'] = raw_data['Precision']
-    row['COnPOff_Recall'] = raw_data['Recall']
-    row['COnPOff_F'] = raw_data['F-measure']
-    row['COnP_Precision'] = raw_data['Precision_no_offset']
-    row['COnP_Recall'] = raw_data['Recall_no_offset']
-    row['COnP_F'] = raw_data['F-measure_no_offset']
-    row['COn_Precision'] = raw_data['Onset_Precision']
-    row['COn_Recall'] = raw_data['Onset_Recall']
-    row['COn_F'] = raw_data['Onset_F-measure']
+    # row['COnPOff_Precision'] = raw_data['Precision']
+    # row['COnPOff_Recall'] = raw_data['Recall']
+    row['COnPOff'] = raw_data['F-measure']
+    # row['COnP_Precision'] = raw_data['Precision_no_offset']
+    # row['COnP_Recall'] = raw_data['Recall_no_offset']
+    row['COnP'] = raw_data['F-measure_no_offset']
+    # row['COn_Precision'] = raw_data['Onset_Precision']
+    # row['COn_Recall'] = raw_data['Onset_Recall']
+    row['COn'] = raw_data['Onset_F-measure']
 
     return row
 
 
 def transform(datasets, trackers, noises, snrs, notes=False):
     labels = load_all_labels(datasets)
-    results = load_all_results(datasets, trackers, noises, snrs)
+    results = load_all_results(datasets, trackers, noises, snrs, notes)
     data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
 
-    data = data.apply(add_voicing_and_cents, axis=1)
-    data = data.apply(calc_metrics, axis=1)
 
-    with open(consts.POST_RESULTS_PATH / 'labels.pkl', 'wb') as f:
-        pickle.dump(labels, f)
+    if notes:
+        data = data.apply(calc_metrics_trans, axis=1)
+        with open(consts.POST_RESULTS_PATH / 'data_trans.pkl', 'wb') as f:
+            pickle.dump(data, f)
+    else:
+        data = data.apply(add_voicing_and_cents, axis=1)
+        data = data.apply(calc_metrics, axis=1)
 
-    with open(consts.POST_RESULTS_PATH / 'data.pkl', 'wb') as f:
-        pickle.dump(data, f)
+        with open(consts.POST_RESULTS_PATH / 'labels.pkl', 'wb') as f:
+            pickle.dump(labels, f)
 
-    flat_data = flatten_samples(data)
-    types2 = {
-        'ref_voicing': 'int8', 
-        'ref_cent': 'float32', 
-        'est_voicing': 'int8', 
-        'est_cent': 'float32', 
-    }
-    flat_data = flat_data.astype(types2)
-    
-    with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'wb') as f:
-        pickle.dump(flat_data, f)
+        with open(consts.POST_RESULTS_PATH / 'data.pkl', 'wb') as f:
+            pickle.dump(data, f)
 
-
-    flat_metrics = calc_metric_flatten(flat_data)
-    with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'wb') as f:
-        pickle.dump(flat_metrics, f)
-
-
-def transform_trans(datasets, transcribers, noises, snrs):
-    labels = load_all_labels(datasets)
-    results = load_all_results(datasets, transcribers, noises, snrs, notes=True)
-    data = results.join(labels.set_index(['file', 'dataset']), on=['file','dataset'])
-
-    data = data.apply(calc_metrics_trans, axis=1)
-
-    with open(consts.POST_RESULTS_PATH / 'data_trans.pkl', 'wb') as f:
-        pickle.dump(data, f)
+        flat_data = flatten_samples(data)
+        types2 = {
+            'ref_voicing': 'int8', 
+            'ref_cent': 'float32', 
+            'est_voicing': 'int8', 
+            'est_cent': 'float32', 
+        }
+        flat_data = flat_data.astype(types2)
+        
+        with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'wb') as f:
+            pickle.dump(flat_data, f)
 
 
-    
-
+        flat_metrics = calc_metric_flatten(flat_data)
+        with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'wb') as f:
+            pickle.dump(flat_metrics, f)
 
 

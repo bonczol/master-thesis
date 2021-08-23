@@ -9,7 +9,6 @@ from multiprocessing import Pool
 from utils import semitones2hz
 import consts
 import sox
-import re
 
 
 class Converter:
@@ -148,7 +147,7 @@ class UrmpConverter(Converter):
 
         with Pool() as pool: 
             notes = pool.map(utils.read_notes, self.proc.get_notes())
-        a = 1
+
         notes_df = pd.DataFrame(notes, columns=['ref_note_interval', 'ref_note_pitch'])
         return pd.concat([labels_df, notes_df], axis=1)
 
