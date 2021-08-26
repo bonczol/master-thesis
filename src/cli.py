@@ -1,9 +1,9 @@
 import argparse
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import evaluate
 import spectrograms
 import post
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             Method.CREPE: Crepe,
             Method.DDSP_INV: InverseTracker,
             Method.SWIPE: Swipe,
-            Method.HF0: Hf0,
+            # Method.HF0: Hf0,
             Method.PYIN: OrignalPYin,
             Method.CREPE_MIDI: CrepeHmmTrans,
             Method.PYIN_MIDI: PyinTrans

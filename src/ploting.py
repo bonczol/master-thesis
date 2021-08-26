@@ -6,10 +6,14 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import utils
 import post
+import librosa
+from matplotlib import colors
 import consts
+import pretty_midi
 import mir_eval.melody as mir
 import seaborn as sns
 from method import Method
+from itertools import product
 pd.options.display.max_columns = 50
 pd.options.display.max_rows = 100
 
@@ -266,7 +270,6 @@ def notes_box_plot():
     data = data.melt(id_vars=['file', 'method'], value_vars=['COn', 'COnP', 'COnPOff'],
         var_name='metric', value_name='metric_value')
 
-
     boxplot = sns.boxplot(x="metric", y="metric_value", hue="method", data=data, 
         showmeans=True, linewidth=0.5, fliersize=0.25)
 
@@ -274,7 +277,49 @@ def notes_box_plot():
     boxplot.set_xlabel('')
     boxplot.set_ylabel('Score')
     boxplot.get_figure().savefig(output_path)
+
+    print(data.groupby(['method', 'metric'])['metric_value'].mean())
     plt.clf()
+
+
+
+def plot_piano_roll(pm, start_pitch, end_pitch, ax, color, fs=100):
+    cmap = colors.ListedColormap(['white', color])
+    librosa.display.specshow(pm.get_piano_roll(fs)[start_pitch:end_pitch],
+                             hop_length=1, sr=fs, x_axis='time', y_axis='cqt_note',
+                             fmin=pretty_midi.note_number_to_hz(start_pitch), ax=ax, cmap=cmap)
+    ax.grid(True)
+    plt.xlim(1, 10)
+
+
+def midi():
+    sns.reset_orig()
+    # plt.rcParams["axes.axisbelow"] = False
+    with open(consts.POST_RESULTS_PATH / 'data_trans.pkl', 'rb') as f:
+        data = pickle.load(f)
+
+    methods = ['CREPEMIDI', 'PYINMIDI']
+    labels = ['CREPE + Heuristic Note Seg.', 'PYIN + HMM Note Seg.']
+    # print(methods)
+    tracks = ['AuSep_2_vn_08_Spring']
+    
+    for track in tracks:
+        fig, axes = plt.subplots(len(methods)+1, 1, figsize=(8, 10), sharex=True)
+        ground_truth = data.loc[(data.file == track), :].iloc[0,:]
+        melody = utils.intervals_to_midi(ground_truth.ref_note_interval, ground_truth.ref_note_pitch)
+        plot_piano_roll(melody, 58, 80, axes[0], sns.color_palette()[0])
+        axes[0].set_title('Ground-truth')
+        for i, method in enumerate(methods):
+            row = data.loc[(data.file == track) & (data.method == method), :].iloc[0,:]
+            melody = utils.intervals_to_midi(row.est_note_interval, row.est_note_pitch)
+            plot_piano_roll(melody, 58, 80, axes[i+1], sns.color_palette()[i+1])
+            axes[i+1].set_title(labels[i])
+
+        for ax in axes:
+            ax.label_outer()
+
+        plt.tight_layout()
+        fig.savefig(consts.PLOTS_PATH / f'midi_{track}.pdf')
 
 
 def subplot():
@@ -349,7 +394,8 @@ def subplot():
     """
     Notes
     """
-    notes_box_plot()
+    # notes_box_plot()
+    midi()
 
     
 

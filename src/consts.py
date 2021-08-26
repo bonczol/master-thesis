@@ -8,8 +8,8 @@ from pandas.api.types import CategoricalDtype
 Project structure
 '''
 
-# WD = Path.cwd().parent
-WD = Path('C:/Users/Filip/Projects/master-thesis')
+WD = Path.cwd()
+# WD = Path('C:/Users/Filip/Projects/master-thesis')
 DATA_DIR = WD / "data"
 OUT_DIR = WD / "out"
 SRC_DIR = WD / "src"

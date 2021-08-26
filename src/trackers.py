@@ -11,7 +11,7 @@ import ddsp.training
 import time
 import consts
 import pysptk
-import matlab.engine
+# import matlab.engine
 from pathlib import Path
 import tensorflow as tf
 import subprocess
@@ -192,21 +192,21 @@ class Swipe(AbstractMethod):
         return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
 
-class Hf0(AbstractMethod):
-    def __init__(self):
-        self.eng = matlab.engine.start_matlab()
-        self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
-        self.eng.mirverbose(0)
-        self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
-        super().__init__(Method.HF0, is_multicore=False)
+# class Hf0(AbstractMethod):
+#     def __init__(self):
+#         self.eng = matlab.engine.start_matlab()
+#         self.eng.cd(str(consts.SRC_DIR / 'hf0_mod'))
+#         self.eng.mirverbose(0)
+#         self.tracker = self.eng.getfield(self.eng.load('convModel.mat'), 'convnet')
+#         super().__init__(Method.HF0, is_multicore=False)
 
-    def predict(self, audio):
-        t0 = time.perf_counter()
-        audio = matlab.double(audio.tolist())
-        pitch_pred, time_, _ = self.eng.PitchExtraction(audio, self.tracker, nargout=3)
-        pitch_pred, time_ = np.array(pitch_pred).flatten(), np.array(time_).flatten()
-        confidence_pred = (pitch_pred > 0).astype(np.int)
-        return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
+#     def predict(self, audio):
+#         t0 = time.perf_counter()
+#         audio = matlab.double(audio.tolist())
+#         pitch_pred, time_, _ = self.eng.PitchExtraction(audio, self.tracker, nargout=3)
+#         pitch_pred, time_ = np.array(pitch_pred).flatten(), np.array(time_).flatten()
+#         confidence_pred = (pitch_pred > 0).astype(np.int)
+#         return time_, pitch_pred, confidence_pred, time.perf_counter() - t0
 
 
 

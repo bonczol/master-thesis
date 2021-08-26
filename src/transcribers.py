@@ -7,28 +7,16 @@ import pretty_midi
 import utils
 import librosa
 import subprocess
+import essentia.standard as es
 import matplotlib.pyplot as plt
 from trackers import AbstractMethod
 from method import Method
 
  
-
 def rms(y):
     return np.sqrt(np.mean(y**2))
 
 
-def intervals_to_midi(intervals):
-    melody = pretty_midi.PrettyMIDI()
-    instrument = pretty_midi.Instrument(program=0)
-
-    for interval in intervals:
-        note = pretty_midi.Note(velocity=100, pitch=interval[2], start=interval[0], end=interval[1])
-        instrument.notes.append(note)
-
-    melody.instruments.append(instrument)
-    return melody
-
-    
 class CrepeTrans(AbstractMethod):
     def __init__(self, step_size, confidence_t, amplitude_t):
         super().__init__(Method.CREPE_MIDI, is_multicore=False)
@@ -39,21 +27,25 @@ class CrepeTrans(AbstractMethod):
 
 
 class CrepeHmmTrans(CrepeTrans):
-    def __init__(self, step_size=10, confidence_t=0.5, amplitude_t=0.1):
+    def __init__(self, step_size=10, confidence_t=0.65, amplitude_t=0.01):
         super().__init__(step_size, confidence_t, amplitude_t)
 
     def predict(self, audio):
-        _, pitch, confidence, _ = self.tracker.predict(audio)
+        return self.tracker.predict(audio)
 
+    def transcribe(self, pitch, confidence, audio):
         audio = utils.normalize_peak(audio)
         frames = crepe.get_frames(audio, self.step_size)
         frames_rms = np.apply_along_axis(rms, 1, frames)
 
-        # voicing = crepe.predict_voicing(confidence)
-        
         pitch = pitch * ((confidence > self.confidence_t) & (frames_rms > self.amplitude_t))
 
-        return [], []
+        cnt_seg = es.PitchContourSegmentation(hopSize=160, sampleRate=16000, pitchDistanceThreshold=60, rmsThreshold=-3, minDuration=0.1)
+        onset, duration, pitch = cnt_seg(pitch.astype(np.single), audio.astype(np.single))
+
+        onset, duration, pitch = np.array([(o,d,p) for o, d, p in zip(onset, duration, pitch) if d > 0 and not np.isnan(p)]).T
+        intervals = np.vstack((onset, onset + duration)).T
+        return intervals, librosa.midi_to_hz(pitch.T)
 
 
 

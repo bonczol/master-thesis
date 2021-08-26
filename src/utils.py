@@ -4,6 +4,21 @@ import mir_eval
 import librosa
 import scipy
 import pandas as pd
+import pretty_midi
+from visual_midi import Plotter
+
+
+
+def intervals_to_midi(intervals, pitches):
+    melody = pretty_midi.PrettyMIDI()
+    instrument = pretty_midi.Instrument(program=0)
+
+    for interval, pitch in zip(intervals, pitches):
+        note = pretty_midi.Note(velocity=100, pitch=hz2midi(pitch), start=interval[0], end=interval[1])
+        instrument.notes.append(note)
+
+    melody.instruments.append(instrument)
+    return melody
 
 
 def read_label(path):
