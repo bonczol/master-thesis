@@ -3,7 +3,6 @@ from method import Method
 from trackers import Crepe
 import crepe_mod.crepe as crepe
 import consts
-import pretty_midi
 import utils
 import librosa
 import subprocess
@@ -53,7 +52,7 @@ class PyinTrans(AbstractMethod):
     def __init__(self):
         super().__init__(Method.PYIN_MIDI, is_multicore=True)
         
-    def predict(self, audio):
+    def transcribe(self, audio):
         wav_path = audio
         cmd = ['sonic-annotator',
                 '-t', consts.TRANS_PATH / 'pyin_note.n3',

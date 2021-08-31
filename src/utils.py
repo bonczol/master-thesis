@@ -5,8 +5,6 @@ import librosa
 import scipy
 import pandas as pd
 import pretty_midi
-from visual_midi import Plotter
-
 
 
 def intervals_to_midi(intervals, pitches):
