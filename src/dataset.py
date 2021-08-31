@@ -36,6 +36,7 @@ class MirInput(DatasetInput):
              Input('vocal', 'vocal', 'vocal-nonvocalLabel')]
         )
 
+
 class MdbInput(DatasetInput):
     def __init__(self):
         super().__init__(
@@ -45,6 +46,7 @@ class MdbInput(DatasetInput):
              Input('metadata', 'yaml', 'metadata')]
         )
 
+
 class UrmpInput(DatasetInput):
     def __init__(self):
         super().__init__(
@@ -52,6 +54,14 @@ class UrmpInput(DatasetInput):
             [Input('audio', 'wav', prefix='AuSep'),
              Input('pitch', 'txt', prefix='F0s'),
              Input('notes', 'txt', prefix='Notes')]
+        )
+
+
+class IapasInput(DatasetInput):
+    def __init__(self):
+        super().__init__(
+            'IAPAS',
+            [Input('audio', 'mp3', 'AudioFiles')]
         )
 
 

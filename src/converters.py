@@ -152,3 +152,20 @@ class UrmpConverter(Converter):
         return pd.concat([labels_df, notes_df], axis=1)
 
 
+class IapasConverter(Converter):
+    def __init__(self, raw, proc):
+        self.raw = raw        
+        self.proc = proc
+
+    def prepare(self):
+        self._convert()
+
+    def _convert_args(self):
+        return zip(self.raw.get('audio'), self.proc.get_wavs())
+
+    def _convert_func(self):
+        return self._convert_example
+
+    def _convert_example(self, wav_path, out_wav_path):
+        sox.Transformer().convert(consts.SR, 1, 16) \
+                         .build(str(wav_path), str(out_wav_path))

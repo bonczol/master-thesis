@@ -10,9 +10,9 @@ import post
 from itertools import product
 import ploting
 from method import Method
-from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput
+from dataset import DatasetOutput, MirInput, MdbInput, UrmpInput, IapasInput
 from transcribers import CrepeHmmTrans, PyinTrans
-from converters import MirConverter, MdbConverter, UrmpConverter
+from converters import MirConverter, MdbConverter, UrmpConverter, IapasConverter
 from degrader import Modifier
 
 
@@ -81,16 +81,17 @@ if __name__ == "__main__":
     if args.which == 'prepare':
         DATASET_INPUT = {
             'MIR-1k': MirInput, 'MDB-stem-synth': MdbInput, 
-            'URMP': UrmpInput
+            'URMP': UrmpInput, 'IAPAS': IapasInput
         }
         CONVERTERS = {
             'MIR-1k': MirConverter,'MDB-stem-synth': MdbConverter, 
-            'URMP': UrmpConverter
+            'URMP': UrmpConverter, 'IAPAS': IapasConverter
         }
         
         datasets_inputs = [DATASET_INPUT[d]() for d in args.datasets]
         datasets_outputs = [DatasetOutput(d.name, d.get_filenames('audio')) for d in datasets_inputs]
         converters = [CONVERTERS[in_.name](in_, out_) for in_, out_ in zip(datasets_inputs, datasets_outputs)]
+
         for converter in converters:
             converter.prepare()
 
