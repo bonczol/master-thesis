@@ -66,7 +66,7 @@ class Spice(AbstractMethod):
 
 
 class Crepe(AbstractMethod):
-    def __init__(self, step_size=32, version='full', smooth_pitch=False):
+    def __init__(self, step_size=10, version='full', smooth_pitch=False):
         self.step_size = step_size
         self.smooth_pitch = smooth_pitch
         self.model = crepe.build_and_load_model(version)

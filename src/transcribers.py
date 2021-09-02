@@ -6,14 +6,10 @@ import consts
 import utils
 import librosa
 import subprocess
-import essentia.standard as es
+# import essentia.standard as es
 import matplotlib.pyplot as plt
 from trackers import AbstractMethod
 from method import Method
-
- 
-def rms(y):
-    return np.sqrt(np.mean(y**2))
 
 
 class CrepeTrans(AbstractMethod):
@@ -35,7 +31,7 @@ class CrepeHmmTrans(CrepeTrans):
     def transcribe(self, pitch, confidence, audio):
         audio = utils.normalize_peak(audio)
         frames = crepe.get_frames(audio, self.step_size)
-        frames_rms = np.apply_along_axis(rms, 1, frames)
+        frames_rms = np.apply_along_axis(utils.rms, 1, frames)
 
         pitch = pitch * ((confidence > self.confidence_t) & (frames_rms > self.amplitude_t))
 

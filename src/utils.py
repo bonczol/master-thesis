@@ -7,6 +7,10 @@ import pandas as pd
 import pretty_midi
 
 
+def rms(y):
+    return np.sqrt(np.mean(y**2))
+
+
 def intervals_to_midi(intervals, pitches):
     melody = pretty_midi.PrettyMIDI()
     instrument = pretty_midi.Instrument(program=0)
