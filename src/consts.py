@@ -44,8 +44,11 @@ Plot params
 '''
 palette = sns.color_palette()
 
-COLORS = {method.value: color for method, color in zip(Method, palette)}
-METHODS_VAL = [m.value for m in list(Method)]
+METHODS = [Method.SPICE, Method.CREPE, Method.DDSP_INV, Method.SWIPE, Method.HF0, Method.PYIN]
+METHODS_TRANS = [Method.CREPE_MIDI, Method.PYIN_MIDI]
+
+COLORS = {method.value: color for method, color in zip(METHODS, palette)}
+METHODS_VAL = [m.value for m in METHODS]
 DS_ORDER = ['MIR-1k', 'MDB-stem-synth', 'URMP']
 
 DS_CAT = CategoricalDtype(categories=DS_ORDER, ordered=True)

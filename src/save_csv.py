@@ -8,11 +8,14 @@ import matplotlib.pyplot as plt
 from librosa import display as librosadisplay
 from evaluate import get_waveform
 from dataset import DatasetOutput
+from trackers import OrignalPYin
 
 
 TRACKERS = ['CREPE']
 DATASET = DatasetOutput('IAPAS')
 RES_DIR = consts.OUT_DIR / 'extra'
+
+THRESHOLDS = {'CREPE': 0.6, 'PYIN': 0.5}
 
 
 def plot_stft(audio, time, pitch, sample_rate):
@@ -23,68 +26,36 @@ def plot_stft(audio, time, pitch, sample_rate):
   plt.plot(time, pitch)
 
 
-def save_f0_crepe():
-    df = pickle.load(open(DATASET.get_result('CREPE'), 'rb'))
+def save_f0():
+    methods = ['CREPE', 'PYIN']
+    dfs = {method: pickle.load(open(DATASET.get_result(method), 'rb')) 
+           for method in methods}
 
-    # f0 with confidence
-    for _, row in df.iterrows():
-
-        dir_ = RES_DIR / row.file
-        if not dir_.exists():
-            dir_.mkdir()
-
-        ts = np.vstack((row.time, row.pitch, row.confidence)).T
-        np.savetxt(dir_ / 'f0_confidence.csv', ts, delimiter=',')
-
-    # f0
     for wav_path in DATASET.get_wavs():
         _, waveform = get_waveform(wav_path)
-        audio = waveform
-
-        frames = crepe.get_frames(audio, 10)
-        frames_rms = np.apply_along_axis(utils.rms, 1, frames)
-        frames_rms = (frames_rms - frames_rms.mean()) / frames_rms.std()
-
-        row = df[df.file == wav_path.stem].iloc[0]
-
-        dir_ = RES_DIR / row.file
+        file_ = wav_path.stem
+        dir_ = RES_DIR / file_
         if not dir_.exists():
             dir_.mkdir()
 
-        pitch = row.pitch * ((row.confidence > 0.6) & (frames_rms > -1) & (row.pitch > 52) & (row.pitch < 3000))
-        # pitch = row.pitch
-        
+        fig, axes = plt.subplots(len(methods), 1)
 
-        ts = np.vstack((row.time, pitch)).T
-        np.savetxt(dir_ / 'f0.csv', ts, delimiter=',')
+        for i, method in enumerate(methods):
+            df = dfs[method]
+            row = df[df.file == wav_path.stem].iloc[0]
+            ts = np.vstack((row.time, row.pitch, row.confidence)).T
+            np.savetxt(dir_ / f'{method}_F0.csv', ts, delimiter=',')
+
+            pitch_voiced = np.where((row.pitch > 0) & (row.confidence > THRESHOLDS[method]), row.pitch, np.inf)
+
+            axes[i].set_title(method)
+            plt.sca(axes[i])
+            plot_stft(waveform, row.time, pitch_voiced, consts.SR)
         
-        pitch = np.where(pitch > 0, pitch, np.inf)
-        plot_stft(audio, row.time, pitch, consts.SR)
-        fig = plt.gcf()
         fig.set_size_inches(50, 10)
         fig.savefig(dir_ / 'f0_spectrogram.jpg', dpi=400)
         plt.clf()
 
 
-
-save_f0_crepe()
-
-
-
-    # results_note_dfs = [pickle.load(open(dataset.get_result_notes(t), 'rb'))
-    #                     for t in trackers]
-
-
-# MIDI
-# for path in Path(consts.RESULTS_NOTES_PATH / 'IAPAS').glob("*.pkl"):
-#     with open(path, 'rb') as f:
-#         df = pickle.load(f)
-
-#     for i, row in df.iterrows():
-#         # pitch = row.pitch * (row.confidence > 0.6)
-#         ts = np.vstack((row.est_note_interval, row.est_note_pitch)).T
-#         ts_path = consts.OUT_DIR / 'extra' / f'{row.file}.csv'
-#         np.savetxt(ts_path, ts, delimiter=',')
-
-
+save_f0()
 

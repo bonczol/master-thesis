@@ -43,6 +43,31 @@ class CrepeHmmTrans(CrepeTrans):
         return intervals, librosa.midi_to_hz(pitch.T)
 
 
+class CrepeHmmTransMod(CrepeTrans):
+    def __init__(self, step_size=10, confidence_t=0.6, amplitude_t=-1):
+        super().__init__(step_size, confidence_t, amplitude_t)
+
+    def predict(self, audio):
+        return self.tracker.predict(audio)
+
+    def transcribe(self, pitch, confidence, audio):
+        audio = utils.normalize_peak(audio)
+        frames = crepe.get_frames(audio, self.step_size)
+        frames_rms = np.apply_along_axis(utils.rms, 1, frames)
+
+        # standarize
+        frames_rms = (frames_rms - frames_rms.mean()) / frames_rms.std()
+
+        pitch = pitch * ((confidence > self.confidence_t) & (frames_rms > self.amplitude_t))
+
+        cnt_seg = es.PitchContourSegmentation(hopSize=160, sampleRate=16000, pitchDistanceThreshold=60, rmsThreshold=-3, minDuration=0.1)
+        onset, duration, pitch = cnt_seg(pitch.astype(np.single), audio.astype(np.single))
+
+        onset, duration, pitch = np.array([(o,d,p) for o, d, p in zip(onset, duration, pitch) if d > 0 and not np.isnan(p)]).T
+        intervals = np.vstack((onset, onset + duration)).T
+        return intervals, librosa.midi_to_hz(pitch.T)
+
+
 
 class PyinTrans(AbstractMethod):
     def __init__(self):

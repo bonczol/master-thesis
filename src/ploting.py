@@ -128,7 +128,7 @@ def noise_plot(data, output_path):
 
     g = sns.FacetGrid(urmp_data, col="noise", col_wrap=2, col_order=noise_types, aspect=1.33)
     g.map_dataframe(sns.lineplot, x='snr', y="RPA", hue="method", data=urmp_data,  sort=False,
-        palette=consts.COLORS, hue_order=[m.value for m in list(Method)])
+        palette=consts.COLORS, hue_order=consts.METHODS_VAL)
     g.set_titles(col_template="{col_name}")
     g.set_axis_labels("SNR [dB]", "Raw Pitch Accuracy")
     g.add_legend(ncol=2, bbox_to_anchor=(0.7, 0.25))
@@ -347,10 +347,10 @@ def subplot():
     # with open(consts.POST_RESULTS_PATH / 'flat_data.pkl', 'rb') as f:
     #     flat_data = pickle.load(f)
 
-    # with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'rb') as f:
-    #     flat_metrics = pickle.load(f)
+    with open(consts.POST_RESULTS_PATH / 'flat_metrics.pkl', 'rb') as f:
+        flat_metrics = pickle.load(f)
 
-    # flat_metrics = flat_metrics.astype({'dataset': consts.DS_CAT, 'method': consts.METHOD_CAT})
+    flat_metrics = flat_metrics.astype({'dataset': consts.DS_CAT, 'method': consts.METHOD_CAT})
 
     # metrics = ['RPA', 'RWC', 'VRR', 'VRF', 'OA']
     # metrics_summary(data, metrics, consts.RESULTS_PATH / 'summary.csv')
@@ -381,16 +381,16 @@ def subplot():
     # instruments(flat_data, consts.PLOTS_PATH / 'instruments.pdf')
 
     # Noise urmp
-    # noise_metrics = flat_metrics.copy()
-    # for _, row in noise_metrics[noise_metrics.noise == 'clean'].iterrows():  
-    #     for noise in ['white', 'pink', 'brown', 'acco', 'blue', 'violet']:
-    #         new_row = row.copy()
-    #         new_row['noise'] = noise
-    #         new_row['snr'] = 'inf'
-    #         noise_metrics = noise_metrics.append(new_row)
-    # noise_metrics = noise_metrics.loc[noise_metrics.noise != 'clean', :]
+    noise_metrics = flat_metrics.copy()
+    for _, row in noise_metrics[noise_metrics.noise == 'clean'].iterrows():  
+        for noise in ['white', 'pink', 'brown', 'acco', 'blue', 'violet']:
+            new_row = row.copy()
+            new_row['noise'] = noise
+            new_row['snr'] = 'inf'
+            noise_metrics = noise_metrics.append(new_row)
+    noise_metrics = noise_metrics.loc[noise_metrics.noise != 'clean', :]
 
-    # noise_plot(noise_metrics, consts.PLOTS_PATH / 'noise.pdf')
+    noise_plot(noise_metrics, consts.PLOTS_PATH / 'noise.pdf')
     # acco_plot(noise_metrics, consts.PLOTS_PATH / 'acco.pdf')
 
 
@@ -403,7 +403,7 @@ def subplot():
     """
     Notes
     """
-    notes_box_plot()
+    # notes_box_plot()
     # midi()
 
     

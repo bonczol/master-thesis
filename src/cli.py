@@ -1,5 +1,6 @@
 import argparse
 import os
+import consts
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
@@ -55,7 +56,6 @@ if __name__ == "__main__":
     snrs = [20, 10, 0]
     colors = ['white', 'pink', 'brown', 'blue', 'violet', 'acco']
     all_datasets = ['MIR-1k', 'MDB-stem-synth', 'URMP']
-    all_trackers = list(Method)
 
 
     if args.which in ['evaluate', 'degrade']:
@@ -108,9 +108,10 @@ if __name__ == "__main__":
 
 
     if args.which == 'post':
+        methods = consts.METHODS_TRANS if args.notes else consts.METHODS
         post.transform(
             [DatasetOutput(n) for n in ['MIR-1k', 'MDB-stem-synth', 'URMP']],
-            list(Method),
+            methods,
             colors,
             snrs,
             args.notes
